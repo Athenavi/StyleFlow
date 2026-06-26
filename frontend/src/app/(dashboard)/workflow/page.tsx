@@ -7,7 +7,8 @@ import {
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, ApartmentOutlined,
-  PlayCircleOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined
+  PlayCircleOutlined, EyeOutlined, CheckCircleOutlined, CloseCircleOutlined,
+  TeamOutlined
 } from '@ant-design/icons';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import api from '@/lib/api';
@@ -34,7 +35,7 @@ export default function WorkflowDefsPage() {
     try {
       const [dRes, iRes] = await Promise.all([
         api.get('/workflows/definitions'),
-        api.get('/workflows'),
+        api.get('/workflows/enriched'),
       ]);
       setDefs(dRes.data || dRes.results || dRes || []);
       setInstances(iRes.data || iRes.results || iRes || []);
@@ -59,6 +60,16 @@ export default function WorkflowDefsPage() {
     } catch (err: any) { msg.error(err.response?.data?.error?.message || '启动失败'); }
   };
 
+  const handleClaim = async (instanceId: number) => {
+    try {
+      await api.post(`/workflows/${instanceId}/claim`);
+      msg.success('已认领该任务');
+      fetchData();
+    } catch (err: any) {
+      msg.error(err.response?.data?.error?.message || '认领失败');
+    }
+  };
+
   const instColumns = [
     { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
     {
@@ -71,14 +82,26 @@ export default function WorkflowDefsPage() {
     { title: '当前节点', dataIndex: 'current_node', key: 'current_node',
       render: (v: string) => <Tag color="blue">{v}</Tag> },
     { title: '指派人', dataIndex: 'assigned_name', key: 'assigned_name',
-      render: (v: string) => v ? <Tag color="orange">{v}</Tag> : <Tag>待认领</Tag> },
+      render: (v: string, r: any) => {
+        if (r.is_mine) return <Tag color="green">✅ 我</Tag>;
+        if (v) return <Tag color="orange">{v}</Tag>;
+        return <Tag>⏳ 待认领</Tag>;
+      },
+    },
     { title: '创建时间', dataIndex: 'created_at', key: 'created_at',
       render: (v: string) => v?.slice(0, 16) || '-' },
     {
       title: '操作', key: 'action',
       render: (_: any, r: any) => (
-        <Button size="small" icon={<EyeOutlined />}
-          onClick={() => { /* 跳转到实例详情后续实现 */ }}>查看</Button>
+        <Space size={4}>
+          {r.status === 'running' && !r.assigned_name && (
+            <Button size="small" type="primary" ghost icon={<TeamOutlined />}
+              onClick={() => handleClaim(r.id)}>认领</Button>
+          )}
+          {r.is_mine && (
+            <Button size="small" type="primary" icon={<EyeOutlined />}>处理</Button>
+          )}
+        </Space>
       ),
     },
   ];

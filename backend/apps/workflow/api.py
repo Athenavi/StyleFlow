@@ -1,5 +1,6 @@
-from ninja import Router, Schema
 from typing import List, Optional
+from ninja import Router, Schema
+from django.db import models as db_models
 
 from .models import WorkflowDefinition, WorkflowInstance, MAX_DEFINITIONS
 from .schemas import WorkflowInstanceOut, ProceedIn
@@ -109,10 +110,32 @@ class InstanceCreateIn(Schema):
 
 @router.get('', response=List[WorkflowInstanceOut])
 def list_workflows(request, status: str = None):
-    qs = WorkflowInstance.objects.all()
+    qs = WorkflowInstance.objects.all().select_related('assigned_to')
     if status:
         qs = qs.filter(status=status)
     return qs.order_by('-created_at')
+
+
+@router.get('/enriched')
+def list_enriched(request, status: str = None):
+    """返回包含认领信息的实例列表"""
+    user = _get_user(request)
+    qs = WorkflowInstance.objects.all().select_related('assigned_to')
+    if status:
+        qs = qs.filter(status=status)
+    result = []
+    for inst in qs.order_by('-created_at'):
+        result.append({
+            'id': inst.id, 'title': inst.title,
+            'workflow_type': inst.workflow_type, 'object_id': inst.object_id,
+            'current_node': inst.current_node, 'status': inst.status,
+            'created_at': inst.created_at.isoformat() if inst.created_at else '',
+            'updated_at': inst.updated_at.isoformat() if inst.updated_at else '',
+            'definition_id': inst.definition_id,
+            'assigned_name': inst.assigned_to.username if inst.assigned_to else None,
+            'is_mine': inst.assigned_to == user,
+        })
+    return result
 
 
 @router.post('', response=WorkflowInstanceOut)
