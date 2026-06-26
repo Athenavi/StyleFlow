@@ -85,7 +85,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   if (initializing) {
     return (
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" tip="加载中..." />
+        <Spin size="large"><span style={{ color: '#1677ff' }}>加载中...</span></Spin>
       </div>
     );
   }
@@ -137,7 +137,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           />
           <Dropdown menu={userMenu} placement="bottomRight">
             <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Avatar icon={<UserOutlined />} src={user?.avatar} />
+              <Avatar icon={<UserOutlined />} src={user?.avatar || undefined} />
               <span>{user?.username || '用户'}</span>
               <span style={{ fontSize: 12, color: '#999' }}>({user?.role || '-'})</span>
             </div>
