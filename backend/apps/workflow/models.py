@@ -45,7 +45,8 @@ class WorkflowInstance(TimestampMixin):
     current_node = models.CharField(max_length=50, default='start')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='running')
     data_snapshot = models.JSONField(default=dict, blank=True)
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_workflows')
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_workflows')
 
     class Meta:
         db_table = 'workflow_instance'

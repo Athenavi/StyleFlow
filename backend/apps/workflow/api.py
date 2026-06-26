@@ -135,6 +135,19 @@ def get_todos(request):
     return {'todos': WorkflowEngine.get_user_todos(user)}
 
 
+@router.post('/{instance_id}/claim')
+def claim_task(request, instance_id: int):
+    """认领当前节点任务（先到先得）"""
+    user = _get_user(request)
+    instance = WorkflowInstance.objects.get(id=instance_id)
+    try:
+        WorkflowEngine.claim(instance, user)
+        return {'success': True, 'assigned_to': user.username}
+    except ValueError as e:
+        from ninja.errors import HttpError
+        raise HttpError(400, str(e))
+
+
 @router.get('/{instance_id}')
 def get_workflow(request, instance_id: int):
     return WorkflowInstance.objects.prefetch_related('nodes').get(id=instance_id)
@@ -144,5 +157,9 @@ def get_workflow(request, instance_id: int):
 def proceed_workflow(request, instance_id: int, payload: ProceedIn):
     user = _get_user(request)
     instance = WorkflowInstance.objects.get(id=instance_id)
-    WorkflowEngine.proceed(instance, user, action=payload.action, comment=payload.comment)
-    return {'success': True, 'status': instance.status, 'current_node': instance.current_node}
+    try:
+        WorkflowEngine.proceed(instance, user, action=payload.action, comment=payload.comment)
+        return {'success': True, 'status': instance.status, 'current_node': instance.current_node}
+    except ValueError as e:
+        from ninja.errors import HttpError
+        raise HttpError(400, str(e))

@@ -70,6 +70,8 @@ export default function WorkflowDefsPage() {
     },
     { title: '当前节点', dataIndex: 'current_node', key: 'current_node',
       render: (v: string) => <Tag color="blue">{v}</Tag> },
+    { title: '指派人', dataIndex: 'assigned_name', key: 'assigned_name',
+      render: (v: string) => v ? <Tag color="orange">{v}</Tag> : <Tag>待认领</Tag> },
     { title: '创建时间', dataIndex: 'created_at', key: 'created_at',
       render: (v: string) => v?.slice(0, 16) || '-' },
     {
@@ -93,8 +95,9 @@ export default function WorkflowDefsPage() {
         <span>
           <strong>使用说明：</strong>
           ① 在下方「工作流模板」中点击 <PlayCircleOutlined /> 启动工作流 →
-          ② 实例会在「运行中实例」列表出现 →
-          ③ 相应角色用户可在工作流看板处理待办（推进/驳回）
+          ② 实例在「运行中实例」列表出现，状态为「进行中」 →
+          ③ 相应角色的用户进入工作流看板 → 点击「认领」任务（先到先得）→
+          ④ 认领后点击详情弹窗中的「推进」/「驳回」处理节点
         </span>
       } type="info" showIcon style={{ marginBottom: 16, borderRadius: 8 }} />
 
