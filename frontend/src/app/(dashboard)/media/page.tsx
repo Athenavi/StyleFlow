@@ -39,7 +39,7 @@ export default function MediaPage() {
       const params: any = {};
       if (category) params.category = category;
       if (search) params.search = search;
-      const res: any = await api.get('/media', { params });
+      const res: any = await api.get('/media', params);
       setMedia(res.data || res.results || res || []);
     } catch { message.error('加载失败'); }
     finally { setLoading(false); }
