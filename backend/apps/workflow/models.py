@@ -2,6 +2,27 @@ from django.db import models
 from django.contrib.auth.models import User
 from common.models import TimestampMixin
 
+MAX_DEFINITIONS = 10
+
+
+class WorkflowDefinition(TimestampMixin):
+    """工作流定义（用户可编辑的可视化工作流模板，最多10条）"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workflow_defs')
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    initial = models.CharField(max_length=50, default='start')
+    nodes = models.JSONField(default=list, blank=True, help_text='节点列表')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'workflow_definition'
+        ordering = ['-created_at']
+        constraints = [models.UniqueConstraint(fields=['user', 'name'], name='uq_user_wf_name')]
+        verbose_name = '工作流定义'
+
+    def __str__(self):
+        return f'{self.name} ({len(self.nodes)} 节点)'
+
 
 class WorkflowInstance(TimestampMixin):
     """工作流实例"""
@@ -20,6 +41,7 @@ class WorkflowInstance(TimestampMixin):
     workflow_type = models.CharField(max_length=30, choices=WORKFLOW_TYPES)
     object_id = models.IntegerField(help_text='关联业务对象ID')
     title = models.CharField(max_length=200)
+    definition = models.ForeignKey(WorkflowDefinition, on_delete=models.SET_NULL, null=True, blank=True)
     current_node = models.CharField(max_length=50, default='start')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='running')
     data_snapshot = models.JSONField(default=dict, blank=True)
@@ -29,15 +51,14 @@ class WorkflowInstance(TimestampMixin):
         db_table = 'workflow_instance'
         indexes = [models.Index(fields=['workflow_type', 'status'])]
         verbose_name = '工作流实例'
-        verbose_name_plural = '工作流实例'
 
 
 class WorkflowNode(models.Model):
     """工作流节点记录"""
     instance = models.ForeignKey(WorkflowInstance, on_delete=models.CASCADE, related_name='nodes')
     node_name = models.CharField(max_length=50)
-    handler = models.CharField(max_length=100, blank=True, help_text='处理人')
-    action = models.CharField(max_length=50, help_text='操作: approve/reject/submit/start')
+    handler = models.CharField(max_length=100, blank=True)
+    action = models.CharField(max_length=50, help_text='approve/reject/submit/start')
     comment = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -45,4 +66,3 @@ class WorkflowNode(models.Model):
         db_table = 'workflow_node'
         ordering = ['created_at']
         verbose_name = '工作流节点'
-        verbose_name_plural = '工作流节点'

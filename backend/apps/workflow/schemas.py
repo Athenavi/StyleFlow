@@ -1,6 +1,5 @@
 from ninja import Schema
 from typing import Optional, List
-from datetime import datetime
 
 
 class WorkflowInstanceOut(Schema):
@@ -12,6 +11,7 @@ class WorkflowInstanceOut(Schema):
     status: str
     created_at: str
     updated_at: str
+    definition_id: Optional[int] = None
 
 
 class WorkflowNodeOut(Schema):
@@ -35,5 +35,5 @@ class WorkflowDetailOut(Schema):
 
 
 class ProceedIn(Schema):
-    action: str = 'approve'  # approve / reject
+    action: str = 'approve'
     comment: str = ''

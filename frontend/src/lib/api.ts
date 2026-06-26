@@ -58,6 +58,8 @@ const api = {
   },
   post: (path: string, body?: any) =>
     request(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
+  put: (path: string, body?: any) =>
+    request(path, { method: 'PUT', body: body ? JSON.stringify(body) : undefined }),
   patch: (path: string, body?: any) =>
     request(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
   delete: (path: string) =>
