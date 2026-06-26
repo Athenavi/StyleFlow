@@ -77,11 +77,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   menuItems.push(
     { key: '/erp', icon: <DatabaseOutlined />, label: 'ERP 数据' },
     { key: '/media', icon: <FolderOutlined />, label: '媒体库' },
+    { key: '/admin/settings', icon: <SettingOutlined />, label: 'AI 配置' },
   );
-
-  if (role === 'admin') {
-    menuItems.push({ key: '/admin/settings', icon: <SettingOutlined />, label: 'AI 配置' });
-  }
 
   // On mount: verify token and fetch user
   useEffect(() => {

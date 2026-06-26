@@ -3,19 +3,18 @@
 import { useState, useEffect } from 'react';
 import {
   Row, Col, Card, Input, Select, Tag, Image, Space, Typography,
-  Spin, Empty, message
+  Spin, Empty, App, Tabs, Button, Modal, message as Msg, Upload
 } from 'antd';
 import {
-  PictureOutlined, SearchOutlined, ClockCircleOutlined
+  PictureOutlined, SearchOutlined, ClockCircleOutlined,
+  EditOutlined, UploadOutlined, FolderOpenOutlined, DeleteOutlined
 } from '@ant-design/icons';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import api from '@/lib/api';
 
 const { Title, Text } = Typography;
-const { Search } = Input;
 
 const CATEGORIES = [
-  { value: '', label: '全部' },
   { value: 'style', label: '款式图' },
   { value: 'sketch', label: '线稿' },
   { value: 'fabric', label: '面料图' },
@@ -23,23 +22,23 @@ const CATEGORIES = [
   { value: 'flatten', label: '平铺图' },
 ];
 
-interface DesignItem {
-  id: number;
-  title: string;
-  image_url: string;
-  thumbnail_url: string;
-  prompt: string;
-  category: string;
-  tags: string[];
-  status: string;
-  created_at: string;
-}
-
 export default function DesignGalleryPage() {
-  const [designs, setDesigns] = useState<DesignItem[]>([]);
+  const { message } = App.useApp();
+  const [designs, setDesigns] = useState<any[]>([]);
+  const [publicDesigns, setPublicDesigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
+  const [tab, setTab] = useState('personal');
+
+  // Edit modal
+  const [editModal, setEditModal] = useState(false);
+  const [editItem, setEditItem] = useState<any>(null);
+  const [editCategory, setEditCategory] = useState('');
+
+  // Media picker
+  const [mediaPicker, setMediaPicker] = useState(false);
+  const [mediaList, setMediaList] = useState<any[]>([]);
 
   const fetchDesigns = async () => {
     setLoading(true);
@@ -47,104 +46,152 @@ export default function DesignGalleryPage() {
       const params: any = {};
       if (category) params.category = category;
       if (search) params.search = search;
-      const res: any = await api.get('/designs', { params });
-      setDesigns(res.data || res.results || res || []);
-    } catch (err: any) {
-      message.error('加载设计稿失败');
-    } finally {
-      setLoading(false);
-    }
+
+      if (tab === 'personal') {
+        const res: any = await api.get('/designs', { params });
+        setDesigns(res.data || res.results || res || []);
+        setPublicDesigns([]);
+      } else {
+        // 公共设计稿库：从一个宽泛的查询获取所有设计稿（可根据后续is_public字段扩展）
+        const res: any = await api.get('/designs', { params });
+        setPublicDesigns(res.data || res.results || res || []);
+        setDesigns([]);
+      }
+    } catch { message.error('加载失败'); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchDesigns(); }, [category]);
+  useEffect(() => { fetchDesigns(); }, [category, tab]);
 
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    fetchDesigns();
+  const handleSearch = () => { fetchDesigns(); };
+
+  const openEdit = (item: any) => {
+    setEditItem(item);
+    setEditCategory(item.category);
+    setEditModal(true);
   };
 
-  const getCategoryLabel = (val: string) =>
-    CATEGORIES.find(c => c.value === val)?.label || val;
+  const saveCategory = async () => {
+    if (!editItem) return;
+    try {
+      await api.patch(`/designs/${editItem.id}`, { category: editCategory });
+      message.success('已更新分类');
+      setEditModal(false);
+      fetchDesigns();
+    } catch { message.error('更新失败'); }
+  };
+
+  const openMediaPicker = () => {
+    api.get('/media').then((res: any) => {
+      setMediaList(res.data || res.results || res || []);
+    }).catch(() => {});
+    setMediaPicker(true);
+  };
+
+  const selectFromMedia = (url: string, title: string) => {
+    // 从媒体库导入设计稿
+    api.post('/designs', {
+      title, image_url: url, category: category || 'style',
+      prompt: '从媒体库导入',
+    }).then(() => {
+      message.success('已导入设计稿库');
+      setMediaPicker(false);
+      fetchDesigns();
+    }).catch(() => message.error('导入失败'));
+  };
+
+  const renderGrid = (items: any[]) => (
+    loading ? <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
+    : items.length === 0 ? <Empty description="暂无设计稿" style={{ padding: 80 }} />
+    : <Row gutter={[16, 16]}>
+        {items.map((item) => (
+          <Col key={item.id} xs={24} sm={12} md={8} lg={6}>
+            <Card
+              hoverable
+              cover={
+                <Image alt={item.title} src={item.image_url || '/placeholder.png'}
+                  style={{ height: 240, objectFit: 'cover' }} preview={{ mask: '点击预览' }}
+                  fallback="data:image/png;base64,iVBORw0KGgo..." />
+              }
+              style={{ borderRadius: 8 }}
+              actions={[
+                <Button key="cat" type="link" size="small" icon={<EditOutlined />}
+                  onClick={() => openEdit(item)}>分类</Button>,
+              ]}
+            >
+              <Card.Meta
+                title={<Text ellipsis style={{ maxWidth: 180 }}>{item.title || `设计稿 #${item.id}`}</Text>}
+                description={
+                  <Space direction="vertical" size={4}>
+                    <Space>
+                      <Tag>{CATEGORIES.find(c => c.value === item.category)?.label || item.category}</Tag>
+                      <Tag color={item.status === 'completed' ? 'green' : 'orange'}>
+                        {item.status === 'completed' ? '已完成' : '草稿'}
+                      </Tag>
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{item.created_at?.slice(0, 10)}</Text>
+                  </Space>
+                }
+              />
+            </Card>
+          </Col>
+        ))}
+      </Row>
+  );
 
   return (
     <DashboardLayout>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>
-          <PictureOutlined style={{ marginRight: 8 }} />
-          设计稿库
+          <PictureOutlined style={{ marginRight: 8 }} />设计稿库
         </Title>
+        <Space>
+          <Button icon={<FolderOpenOutlined />} onClick={openMediaPicker}>从媒体库导入</Button>
+        </Space>
       </div>
 
       <Card style={{ marginBottom: 16, borderRadius: 8 }}>
         <Space wrap size="middle">
-          <Select
-            value={category}
-            onChange={setCategory}
-            options={CATEGORIES}
-            style={{ width: 140 }}
-            placeholder="按分类筛选"
-          />
-          <Search
-            placeholder="搜索设计稿..."
-            onSearch={handleSearch}
-            enterButton={<SearchOutlined />}
-            style={{ width: 300 }}
-            allowClear
-          />
-          <Text type="secondary">
-            <ClockCircleOutlined /> 共 {designs.length} 件
-          </Text>
+          <Select value={category} onChange={setCategory} style={{ width: 140 }}
+            options={[{ value: '', label: '全部分类' }, ...CATEGORIES]} placeholder="按分类筛选" />
+          <Input placeholder="搜索设计稿..." prefix={<SearchOutlined />}
+            value={search} onChange={e => setSearch(e.target.value)}
+            onPressEnter={handleSearch} style={{ width: 300 }} allowClear />
+          <Text type="secondary"><ClockCircleOutlined /> {(tab === 'personal' ? designs : publicDesigns).length} 件</Text>
         </Space>
       </Card>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 80 }}>
-          <Spin size="large" />
+      <Tabs activeKey={tab} onChange={setTab} items={[
+        { key: 'personal', label: `🙋 我的设计 (${designs.length})`, children: renderGrid(designs) },
+        { key: 'public', label: `🌐 公共设计库 (${publicDesigns.length})`, children: renderGrid(publicDesigns) },
+      ]} />
+
+      {/* 分类编辑弹窗 */}
+      <Modal title="修改分类" open={editModal} onOk={saveCategory} onCancel={() => setEditModal(false)}>
+        <div style={{ margin: '16px 0' }}>
+          <Text strong>设计稿：{editItem?.title || `#${editItem?.id}`}</Text>
         </div>
-      ) : designs.length === 0 ? (
-        <Empty description="暂无设计稿" style={{ padding: 80 }} />
-      ) : (
-        <Row gutter={[16, 16]}>
-          {designs.map((item) => (
-            <Col key={item.id} xs={24} sm={12} md={8} lg={6}>
-              <Card
-                hoverable
-                cover={
-                  <Image
-                    alt={item.title}
-                    src={item.image_url || '/placeholder.png'}
-                    style={{ height: 240, objectFit: 'cover' }}
-                    preview={{ mask: '点击预览' }}
-                    fallback="data:image/png;base64,iVBORw0KGgo..."
-                  />
-                }
-                style={{ borderRadius: 8 }}
-              >
-                <Card.Meta
-                  title={
-                    <Text ellipsis style={{ maxWidth: 180 }}>
-                      {item.title || `设计稿 #${item.id}`}
-                    </Text>
-                  }
-                  description={
-                    <Space direction="vertical" size={4}>
-                      <Space>
-                        <Tag>{getCategoryLabel(item.category)}</Tag>
-                        <Tag color={item.status === 'completed' ? 'green' : 'orange'}>
-                          {item.status === 'completed' ? '已完成' : '草稿'}
-                        </Tag>
-                      </Space>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {item.created_at?.slice(0, 10)}
-                      </Text>
-                    </Space>
-                  }
-                />
-              </Card>
-            </Col>
-          ))}
-        </Row>
-      )}
+        <Select value={editCategory} onChange={setEditCategory} style={{ width: '100%' }}
+          options={CATEGORIES} />
+      </Modal>
+
+      {/* 媒体库选择器 */}
+      <Modal title="从媒体库导入" open={mediaPicker} onCancel={() => setMediaPicker(false)} footer={null} width={640}>
+        {mediaList.length === 0 ? <Empty description="媒体库为空，请先上传素材" /> : (
+          <Row gutter={[12, 12]}>
+            {mediaList.map((m: any) => (
+              <Col key={m.id} xs={8} sm={6}>
+                <Card size="small" hoverable
+                  cover={<Image src={m.file_url} style={{ height: 120, objectFit: 'cover' }} preview={false} />}
+                  onClick={() => selectFromMedia(m.file_url, m.title)}
+                  style={{ borderRadius: 6 }}>
+                  <Card.Meta title={<Text ellipsis style={{ fontSize: 11 }}>{m.title}</Text>} />
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        )}
+      </Modal>
     </DashboardLayout>
   );
 }
