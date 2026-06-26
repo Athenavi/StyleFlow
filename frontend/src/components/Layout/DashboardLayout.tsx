@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Layout, Menu, Button, Avatar, Dropdown, theme, Spin } from 'antd';
+import { Layout, Menu, Button, Avatar, Dropdown, theme, Spin, Space, Tooltip } from 'antd';
 import {
   DashboardOutlined,
   PictureOutlined,
@@ -17,9 +17,13 @@ import {
   LogoutOutlined,
   SettingOutlined,
   FolderOutlined,
+  SunOutlined,
+  MoonOutlined,
+  DesktopOutlined,
 } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
+import { useThemeStore } from '@/stores/theme';
 
 const { Header, Sider, Content } = Layout;
 
@@ -35,8 +39,14 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { user, logout, isAuthenticated, fetchMe } = useAuthStore();
   const { token: themeToken } = theme.useToken();
+  const themeMode = useThemeStore((s) => s.mode);
+  const resolved = useThemeStore((s) => s.resolved);
+  const setMode = useThemeStore((s) => s.setMode);
 
   const role = user?.role || '';
+
+  const nextTheme = themeMode === 'light' ? 'dark' : themeMode === 'dark' ? 'system' : 'light';
+  const ThemeIcon = resolved === 'dark' ? <MoonOutlined /> : themeMode === 'system' ? <DesktopOutlined /> : <SunOutlined />;
 
   // 基于角色的菜单栏
   const menuItems: any[] = [
@@ -159,13 +169,18 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => setCollapsed(!collapsed)}
           />
-          <Dropdown menu={userMenu} placement="bottomRight">
-            <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Avatar icon={<UserOutlined />} src={user?.avatar || undefined} />
-              <span>{user?.username || '用户'}</span>
-              <span style={{ fontSize: 12, color: '#999' }}>({user?.role || '-'})</span>
-            </div>
-          </Dropdown>
+          <Space>
+            <Tooltip title={`主题: ${themeMode}，点击切换`}>
+              <Button type="text" icon={ThemeIcon} onClick={() => setMode(nextTheme)} />
+            </Tooltip>
+            <Dropdown menu={userMenu} placement="bottomRight">
+              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Avatar icon={<UserOutlined />} src={user?.avatar || undefined} />
+                <span>{user?.username || '用户'}</span>
+                <span style={{ fontSize: 12, color: '#999' }}>({user?.role || '-'})</span>
+              </div>
+            </Dropdown>
+          </Space>
         </Header>
         <Content style={{ margin: 24, minHeight: 280 }}>
           {children}
