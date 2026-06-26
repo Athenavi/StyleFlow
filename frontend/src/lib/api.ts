@@ -26,6 +26,7 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
         localStorage.setItem('access_token', newToken);
         headers['Authorization'] = `Bearer ${newToken}`;
         const retryRes = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+        if (retryRes.status === 204) return null;
         return retryRes.json();
       } else {
         localStorage.removeItem('access_token');
@@ -37,6 +38,10 @@ async function request(path: string, options: RequestInit = {}): Promise<any> {
       window.location.href = '/login';
       throw new Error('Not authenticated');
     }
+  }
+
+  if (res.status === 204) {
+    return null;  // No Content
   }
 
   const data = await res.json();
