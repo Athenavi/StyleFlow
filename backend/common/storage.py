@@ -85,7 +85,62 @@ def _save_s3(file_content: bytes, rel_path: str) -> str:
     return f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{rel_path}"
 
 
-def _guess_mime(path: str) -> str:
+def _url_to_rel_path(file_url: str) -> str:
+    """从完整 URL 提取相对路径（如 http://localhost:8000/media/users/uuid/x.png → users/uuid/x.png）"""
+    base = getattr(settings, 'BACKEND_BASE_URL', 'http://localhost:8000')
+    media = str(settings.MEDIA_URL)
+    if file_url.startswith(base):
+        return file_url[len(base) + len(media):]
+    return file_url
+
+
+def move_to_trash(user, file_url: str) -> bool:
+    """将文件移入回收站 users/{uuid}/.trash/"""
+    try:
+        rel = _url_to_rel_path(file_url)
+        old_path = Path(settings.MEDIA_ROOT) / rel
+        if not old_path.exists():
+            return False
+        trash_rel = str(rel).replace('media/', '.trash/', 1) if '/media/' in rel else f'.trash/{Path(rel).name}'
+        trash_path = Path(settings.MEDIA_ROOT) / trash_rel
+        trash_path.parent.mkdir(parents=True, exist_ok=True)
+        old_path.rename(trash_path)
+        return True
+    except Exception:
+        return False
+
+
+def restore_from_trash(user, file_url: str) -> bool:
+    """从回收站恢复文件到原位置"""
+    try:
+        rel = _url_to_rel_path(file_url)
+        trash_rel = str(rel).replace('media/', '.trash/', 1) if '/media/' in rel else f'.trash/{Path(rel).name}'
+        trash_path = Path(settings.MEDIA_ROOT) / trash_rel
+        if not trash_path.exists():
+            return False
+        orig_path = Path(settings.MEDIA_ROOT) / rel
+        orig_path.parent.mkdir(parents=True, exist_ok=True)
+        trash_path.rename(orig_path)
+        return True
+    except Exception:
+        return False
+
+
+def delete_file(file_url: str) -> bool:
+    """永久删除文件"""
+    try:
+        rel = _url_to_rel_path(file_url)
+        path = Path(settings.MEDIA_ROOT) / rel
+        if path.exists():
+            path.unlink()
+        # 也检查回收站中的副本
+        trash_rel = str(rel).replace('media/', '.trash/', 1) if '/media/' in rel else f'.trash/{Path(rel).name}'
+        trash_path = Path(settings.MEDIA_ROOT) / trash_rel
+        if trash_path.exists():
+            trash_path.unlink()
+        return True
+    except Exception:
+        return False
     ext = Path(path).suffix.lower()
     return {
         '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',

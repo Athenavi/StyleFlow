@@ -4,7 +4,7 @@ from ninja.files import UploadedFile
 
 from .models import UserMedia
 from apps.accounts.auth import get_user_from_token
-from common.storage import save_file
+from common.storage import save_file, move_to_trash, restore_from_trash, delete_file
 
 router = Router(tags=['媒体库'])
 
@@ -104,17 +104,21 @@ def batch_category(request, payload: BatchCatIn):
 
 @router.post('/batch-delete')
 def batch_delete(request, payload: IdsIn):
-    """批量删除（移入回收站）"""
+    """批量删除（移入回收站——文件移到 .trash 目录）"""
     user = _get_user(request)
-    updated = UserMedia.objects.filter(id__in=payload.ids, user=user).update(is_active=False)
+    items = UserMedia.objects.filter(id__in=payload.ids, user=user)
+    for item in items:
+        move_to_trash(user, item.file_url)
+    updated = items.update(is_active=False)
     return {'moved_to_trash': updated}
 
 
 @router.post('/restore/{media_id}')
 def restore_media(request, media_id: int):
-    """从回收站恢复"""
+    """从回收站恢复（文件从 .trash 移回原位置）"""
     user = _get_user(request)
     media = UserMedia.objects.get(id=media_id, user=user, is_active=False)
+    restore_from_trash(user, media.file_url)
     media.is_active = True
     media.save()
     return {'restored': True}
@@ -122,16 +126,21 @@ def restore_media(request, media_id: int):
 
 @router.post('/empty-trash')
 def empty_trash(request):
-    """清空回收站（永久删除）"""
+    """清空回收站（永久删除文件和数据库记录）"""
     user = _get_user(request)
-    deleted, _ = UserMedia.objects.filter(user=user, is_active=False).delete()
+    items = UserMedia.objects.filter(user=user, is_active=False)
+    for item in items:
+        delete_file(item.file_url)
+    deleted, _ = items.delete()
     return {'permanently_deleted': deleted}
 
 
 @router.delete('/{media_id}', response={204: None})
 def delete_media(request, media_id: int):
+    """删除（移入回收站）"""
     user = _get_user(request)
     media = UserMedia.objects.get(id=media_id, user=user)
+    move_to_trash(user, media.file_url)
     media.is_active = False
     media.save()
     return 204, None
