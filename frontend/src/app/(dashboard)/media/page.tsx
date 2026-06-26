@@ -208,7 +208,20 @@ export default function MediaPage() {
 
       <Tabs activeKey={tab} onChange={setTab} items={[
         { key: 'active', label: `📁 我的素材 (${activeMedia.length})`, children: renderGrid(activeMedia) },
-        { key: 'trash', label: `🗑️ 回收站 (${trashMedia.length})`, children: renderGrid(trashMedia) },
+        { key: 'trash', label: (
+          <Space>
+            <span>🗑️ 回收站 ({trashMedia.length})</span>
+            {trashMedia.length > 0 && (
+              <Popconfirm title="确定清空回收站？所有文件将被永久删除，不可恢复！" onConfirm={async () => {
+                try { await api.post('/media/empty-trash'); message.success('回收站已清空'); fetchMedia(); } catch { message.error('失败'); }
+              }}>
+                <Button size="small" danger type="primary" style={{ fontSize: 11, height: 22, lineHeight: '22px', padding: '0 8px' }}>
+                  清空全部
+                </Button>
+              </Popconfirm>
+            )}
+          </Space>
+        ), children: renderGrid(trashMedia) },
       ]} />
 
       {/* 批量分类弹窗 */}
