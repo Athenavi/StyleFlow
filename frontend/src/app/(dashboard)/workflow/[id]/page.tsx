@@ -68,7 +68,7 @@ export default function WorkflowDetailPage() {
         <Title level={5}>流程步骤</Title>
         <Timeline items={def.nodes?.map((n: any) => ({
           color: n.name === def.initial ? 'blue' : 'gray',
-          children: <Card size="small" style={{ borderRadius: 6, borderLeft: '3px solid #1677ff' }}>
+          content: <Card size="small" style={{ borderRadius: 6, borderLeft: '3px solid #1677ff' }}>
               <Space direction="vertical" size={4}>
                 <Space wrap>
                   <Text strong>{n.label}</Text>

@@ -245,7 +245,7 @@ export default function WorkflowDefsPage() {
           <Title level={5}>操作历史</Title>
           <Timeline items={instDetail?.nodes?.map((n: any) => ({
             color: n.action === 'approve' ? 'green' : n.action === 'reject' ? 'red' : 'blue',
-            children: <span>{n.node_name} — {n.handler} <Tag>{n.action}</Tag></span>,
+            content: <span>{n.node_name} — {n.handler} <Tag>{n.action}</Tag></span>,
           })) || []} />
         </div>
       </Modal>

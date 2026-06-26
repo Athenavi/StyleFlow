@@ -14,7 +14,8 @@
       "label": "设计出款",
       "handler_role": ["designer"],
       "auto_proceed": false,
-      "next": ["review"]
+      "next": ["review"],
+      "reject_to": "planning"
     },
     {
       "name": "review",
@@ -29,14 +30,16 @@
       "label": "工艺单制作",
       "handler_role": ["pattern_maker"],
       "auto_proceed": true,
-      "next": ["costing"]
+      "next": ["costing"],
+      "reject_to": "review"
     },
     {
       "name": "costing",
       "label": "核工价",
       "handler_role": ["accountant", "admin"],
       "auto_proceed": false,
-      "next": ["approval"]
+      "next": ["approval"],
+      "reject_to": "techpack"
     },
     {
       "name": "approval",
