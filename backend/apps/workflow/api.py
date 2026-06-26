@@ -26,7 +26,11 @@ class DefOut(Schema):
     description: str
     initial: str
     nodes: list
-    created_at: str
+    created_at: str = ''
+
+    @staticmethod
+    def resolve_created_at(obj):
+        return obj.created_at.isoformat() if obj.created_at else ''
 
 
 class DefCreateIn(Schema):
