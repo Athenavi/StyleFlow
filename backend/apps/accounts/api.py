@@ -38,11 +38,12 @@ def register(request, payload: RegisterIn):
         password=payload.password,
         email=payload.email,
     )
-    # 自动创建 Profile
-    Profile.objects.create(
-        user=user,
-        role=payload.role if payload.role in dict(Profile.ROLE_CHOICES) else 'designer',
-    )
+    # 更新 Profile 角色（post_save 信号已自动创建 Profile）
+    profile = user.profile
+    role = payload.role if payload.role in dict(Profile.ROLE_CHOICES) else 'designer'
+    if profile.role != role:
+        profile.role = role
+        profile.save()
 
     return 201, UserOut(
         id=user.id,
