@@ -16,8 +16,10 @@ router = Router(tags=['系统配置'])
 class UserAISettingsOut(Schema):
     llm_provider: str
     llm_model: str
+    llm_api_base_url: str = ''
     image_provider: str
     image_model: str
+    image_api_base_url: str = ''
     llm_api_key_masked: str = ''
     image_api_key_masked: str = ''
 
@@ -25,8 +27,10 @@ class UserAISettingsOut(Schema):
 class UserAISettingsIn(Schema):
     llm_provider: Optional[str] = None
     llm_model: Optional[str] = None
+    llm_api_base_url: Optional[str] = None
     image_provider: Optional[str] = None
     image_model: Optional[str] = None
+    image_api_base_url: Optional[str] = None
     llm_api_key: Optional[str] = None     # 明文传入，加密存储
     image_api_key: Optional[str] = None   # 明文传入，加密存储
 
@@ -93,8 +97,10 @@ def get_my_ai_settings(request):
     return {
         'llm_provider': setting.llm_provider,
         'llm_model': setting.llm_model,
+        'llm_api_base_url': setting.llm_api_base_url or '',
         'image_provider': setting.image_provider,
         'image_model': setting.image_model,
+        'image_api_base_url': setting.image_api_base_url or '',
         'llm_api_key_masked': setting.llm_api_key_masked,
         'image_api_key_masked': setting.image_api_key_masked,
     }
@@ -108,7 +114,6 @@ def update_my_ai_settings(request, payload: UserAISettingsIn):
 
     update_data = payload.dict(exclude_unset=True)
 
-    # API Key 用 setter 自动加密
     if 'llm_api_key' in update_data:
         setting.set_llm_api_key(update_data.pop('llm_api_key'))
     if 'image_api_key' in update_data:
@@ -121,8 +126,10 @@ def update_my_ai_settings(request, payload: UserAISettingsIn):
     return {
         'llm_provider': setting.llm_provider,
         'llm_model': setting.llm_model,
+        'llm_api_base_url': setting.llm_api_base_url or '',
         'image_provider': setting.image_provider,
         'image_model': setting.image_model,
+        'image_api_base_url': setting.image_api_base_url or '',
         'llm_api_key_masked': setting.llm_api_key_masked,
         'image_api_key_masked': setting.image_api_key_masked,
     }

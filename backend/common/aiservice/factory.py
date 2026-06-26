@@ -103,40 +103,45 @@ def _get_provider_config(provider_type: str, provider_name: str, model: str = No
 
 
 def get_user_llm_config(user) -> dict:
-    """获取用户的 LLM 配置（含解密后的 API Key）"""
+    """获取用户的 LLM 配置（含解密后的 API Key + 自定义地址）"""
     try:
         setting = user.ai_setting
         provider_name = setting.llm_provider
         model = setting.llm_model
         user_api_key = setting.get_llm_api_key()
+        user_base_url = setting.llm_api_base_url
     except Exception:
         provider_name = None
         model = None
         user_api_key = None
+        user_base_url = None
 
     config = _get_provider_config('llm', provider_name, model) if provider_name else None
     if not config:
         config = _get_provider_config('llm', 'default', model)
     config = config or {}
 
-    # 如果用户设置了自定义 API Key，覆盖系统配置
     if user_api_key:
         config['api_key'] = user_api_key
+    if user_base_url:
+        config['base_url'] = user_base_url
 
     return config
 
 
 def get_user_image_config(user) -> dict:
-    """获取用户的图像模型配置（含解密后的 API Key）"""
+    """获取用户的图像模型配置（含解密后的 API Key + 自定义地址）"""
     try:
         setting = user.ai_setting
         provider_name = setting.image_provider
         model = setting.image_model
         user_api_key = setting.get_image_api_key()
+        user_base_url = setting.image_api_base_url
     except Exception:
         provider_name = None
         model = None
         user_api_key = None
+        user_base_url = None
 
     config = _get_provider_config('image', provider_name, model) if provider_name else None
     if not config:
@@ -145,6 +150,8 @@ def get_user_image_config(user) -> dict:
 
     if user_api_key:
         config['api_key'] = user_api_key
+    if user_base_url:
+        config['base_url'] = user_base_url
 
     return config
 

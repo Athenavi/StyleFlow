@@ -38,6 +38,10 @@ class UserAISetting(models.Model):
     llm_api_key_enc = models.TextField(blank=True, help_text='语言模型 API Key（加密）')
     image_api_key_enc = models.TextField(blank=True, help_text='图像模型 API Key（加密）')
 
+    # 自定义 API 地址
+    llm_api_base_url = models.CharField(max_length=500, blank=True, help_text='LLM API 地址，留空用默认')
+    image_api_base_url = models.CharField(max_length=500, blank=True, help_text='图像API地址，留空用默认')
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

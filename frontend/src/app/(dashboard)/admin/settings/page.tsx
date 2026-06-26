@@ -2,49 +2,59 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Card, Typography, Tag, Button, Space, Spin, message,
-  Row, Col, Select, Divider, Input
+  Card, Typography, Input, Button, Space, Spin, message,
+  Row, Col, Table, Tag
 } from 'antd';
-import {
-  SettingOutlined, RobotOutlined, PictureOutlined, SaveOutlined, KeyOutlined
-} from '@ant-design/icons';
+import { SaveOutlined, RobotOutlined, PictureOutlined, LinkOutlined, KeyOutlined } from '@ant-design/icons';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import api from '@/lib/api';
 
 const { Title, Text } = Typography;
 
+// 常见 API 参考表
+const REFERENCE_DATA = [
+  { provider: 'OpenAI', api_base: 'https://api.openai.com/v1', models: 'gpt-4o, gpt-4o-mini', docs: 'https://platform.openai.com/docs' },
+  { provider: 'Anthropic Claude', api_base: 'https://api.anthropic.com', models: 'claude-sonnet-4, claude-3-haiku', docs: 'https://docs.anthropic.com' },
+  { provider: '阿里通义千问', api_base: 'https://dashscope.aliyuncs.com/compatible-mode/v1', models: 'qwen-max, qwen-plus, qwen-turbo', docs: 'https://help.aliyun.com/zh/model-studio' },
+  { provider: 'DeepSeek', api_base: 'https://api.deepseek.com', models: 'deepseek-chat, deepseek-reasoner', docs: 'https://platform.deepseek.com/docs' },
+  { provider: 'Groq', api_base: 'https://api.groq.com/openai/v1', models: 'llama-3.3-70b, mixtral-8x7b', docs: 'https://console.groq.com/docs' },
+  { provider: 'Stable Diffusion', api_base: 'http://localhost:7860', models: 'sd-xl, sd-3.5', docs: 'https://github.com/AUTOMATIC1111/stable-diffusion-webui' },
+];
+
+const refColumns = [
+  { title: '提供商', dataIndex: 'provider', key: 'provider', width: 130 },
+  { title: 'API 地址', dataIndex: 'api_base', key: 'api_base', render: (v: string) => <code style={{ fontSize: 12 }}>{v}</code> },
+  { title: '常用模型', dataIndex: 'models', key: 'models' },
+  { title: '文档', dataIndex: 'docs', key: 'docs', render: (v: string) => <a href={v} target="_blank" rel="noreferrer">查看 <LinkOutlined /></a> },
+];
+
 export default function AdminSettingsPage() {
-  const [providers, setProviders] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // User's personal AI settings
-  const [llmProvider, setLlmProvider] = useState('openai');
-  const [llmModel, setLlmModel] = useState('gpt-4o');
-  const [imageProvider, setImageProvider] = useState('sd_webui');
-  const [imageModel, setImageModel] = useState('sd-xl');
-  const [llmApiKey, setLlmApiKey] = useState('');
-  const [imageApiKey, setImageApiKey] = useState('');
-  const [llmKeyMasked, setLlmKeyMasked] = useState('');
-  const [imageKeyMasked, setImageKeyMasked] = useState('');
+  // LLM
+  const [llmModel, setLlmModel] = useState('');
+  const [llmBaseUrl, setLlmBaseUrl] = useState('');
+  const [llmKey, setLlmKey] = useState('');
+  const [llmKeyMask, setLlmKeyMask] = useState('');
+
+  // Image
+  const [imgModel, setImgModel] = useState('');
+  const [imgBaseUrl, setImgBaseUrl] = useState('');
+  const [imgKey, setImgKey] = useState('');
+  const [imgKeyMask, setImgKeyMask] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [provRes, settingsRes] = await Promise.all([
-        api.get('/admin/providers'),
-        api.get('/admin/my-settings'),
-      ]);
-      setProviders(provRes);
-
-      const us = provRes.user_settings || {};
-      setLlmProvider(us.llm_provider || 'openai');
-      setLlmModel(us.llm_model || 'gpt-4o');
-      setImageProvider(us.image_provider || 'sd_webui');
-      setImageModel(us.image_model || 'sd-xl');
-      setLlmKeyMasked(us.llm_api_key_masked || '');
-      setImageKeyMasked(us.image_api_key_masked || '');
-    } catch { message.error('加载配置失败'); }
+      const s: any = await api.get('/admin/my-settings');
+      setLlmModel(s.llm_model || '');
+      setLlmBaseUrl(s.llm_api_base_url || '');
+      setLlmKeyMask(s.llm_api_key_masked || '');
+      setImgModel(s.image_model || '');
+      setImgBaseUrl(s.image_api_base_url || '');
+      setImgKeyMask(s.image_api_key_masked || '');
+    } catch { message.error('加载失败'); }
     finally { setLoading(false); }
   };
 
@@ -53,166 +63,84 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const body: any = {
-        llm_provider: llmProvider,
-        llm_model: llmModel,
-        image_provider: imageProvider,
-        image_model: imageModel,
-      };
-      if (llmApiKey) body.llm_api_key = llmApiKey;
-      if (imageApiKey) body.image_api_key = imageApiKey;
-
+      const body: any = { llm_model: llmModel, llm_api_base_url: llmBaseUrl, image_model: imgModel, image_api_base_url: imgBaseUrl };
+      if (llmKey) body.llm_api_key = llmKey;
+      if (imgKey) body.image_api_key = imgKey;
       await api.patch('/admin/my-settings', body);
-      message.success('个人 AI 配置已保存');
-      setLlmApiKey('');
-      setImageApiKey('');
+      message.success('已保存');
+      setLlmKey(''); setImgKey('');
       fetchData();
     } catch { message.error('保存失败'); }
     finally { setSaving(false); }
   };
 
-  const getLlmModels = () => {
-    const p = providers?.llm?.find((x: any) => x.name === llmProvider || x.provider === llmProvider);
-    return p?.models || [llmModel];
-  };
-
-  const getImageModels = () => {
-    const p = providers?.image?.find((x: any) => x.name === imageProvider || x.provider === imageProvider);
-    return p?.models || [imageModel];
-  };
-
-  if (loading) {
-    return <DashboardLayout><div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div></DashboardLayout>;
-  }
+  if (loading) return <DashboardLayout><div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div></DashboardLayout>;
 
   return (
     <DashboardLayout>
-      <Title level={3}>
-        <SettingOutlined style={{ marginRight: 8 }} />
-        我的 AI 模型配置
-      </Title>
+      <Title level={3}><RobotOutlined style={{ marginRight: 8 }} />AI 模型设置</Title>
 
-      <Row gutter={[24, 24]}>
-        {/* LLM Settings */}
+      <Row gutter={24}>
+        {/* 对话模型 */}
         <Col xs={24} lg={12}>
-          <Card title={<><RobotOutlined /> 语言模型 (LLM)</>} style={{ borderRadius: 8 }}>
+          <Card title={<><RobotOutlined /> 对话模型</>} style={{ borderRadius: 8 }}>
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
               <div>
-                <Text strong>提供商</Text>
-                <Select
-                  value={llmProvider}
-                  onChange={(v) => { setLlmProvider(v); setLlmModel(''); }}
-                  style={{ width: '100%', marginTop: 4 }}
-                  options={providers?.llm?.filter((p: any) => p.configured).map((p: any) => ({
-                    value: p.provider,
-                    label: p.label,
-                  }))}
-                />
+                <Text type="secondary"><LinkOutlined /> API 地址</Text>
+                <Input value={llmBaseUrl} onChange={e => setLlmBaseUrl(e.target.value)}
+                  placeholder="留空用默认地址（如 https://api.openai.com/v1）" />
               </div>
               <div>
-                <Text strong>模型</Text>
-                <Select
-                  value={llmModel}
-                  onChange={setLlmModel}
-                  style={{ width: '100%', marginTop: 4 }}
-                  options={getLlmModels().map((m: string) => ({ value: m, label: m }))}
-                />
+                <Text type="secondary"><Tag>模型名称</Tag></Text>
+                <Input value={llmModel} onChange={e => setLlmModel(e.target.value)}
+                  placeholder="如 gpt-4o, claude-sonnet-4, qwen-max" />
               </div>
               <div>
-                <Text strong>
-                  <KeyOutlined style={{ marginRight: 4 }} />
-                  API Key {llmKeyMasked && <Tag style={{ fontSize: 11 }}>{llmKeyMasked}</Tag>}
-                </Text>
-                <Input.Password
-                  placeholder={llmKeyMasked ? '留空则沿用系统配置' : '输入你的 API Key（覆盖系统配置）'}
-                  value={llmApiKey}
-                  onChange={(e) => setLlmApiKey(e.target.value)}
-                  style={{ marginTop: 4 }}
-                />
+                <Text type="secondary"><KeyOutlined /> API Key {llmKeyMask && <Tag style={{ fontSize: 11 }}>{llmKeyMask}</Tag>}</Text>
+                <Input.Password value={llmKey} onChange={e => setLlmKey(e.target.value)}
+                  placeholder={llmKeyMask ? '留空则沿用已有 Key' : '输入 API Key'} />
               </div>
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                onClick={handleSave}
-                loading={saving}
-                block
-              >
-                保存我的配置
-              </Button>
             </Space>
           </Card>
         </Col>
 
-        {/* Image Settings */}
+        {/* 图像模型 */}
         <Col xs={24} lg={12}>
-          <Card title={<><PictureOutlined /> 图像生成模型</>} style={{ borderRadius: 8 }}>
+          <Card title={<><PictureOutlined /> 图像模型</>} style={{ borderRadius: 8 }}>
             <Space direction="vertical" style={{ width: '100%' }} size="middle">
               <div>
-                <Text strong>提供商</Text>
-                <Select
-                  value={imageProvider}
-                  onChange={(v) => { setImageProvider(v); setImageModel(''); }}
-                  style={{ width: '100%', marginTop: 4 }}
-                  options={providers?.image?.filter((p: any) => p.configured).map((p: any) => ({
-                    value: p.provider,
-                    label: p.label,
-                  }))}
-                />
+                <Text type="secondary"><LinkOutlined /> API 地址</Text>
+                <Input value={imgBaseUrl} onChange={e => setImgBaseUrl(e.target.value)}
+                  placeholder="留空用默认（如 http://localhost:7860）" />
               </div>
               <div>
-                <Text strong>模型</Text>
-                <Select
-                  value={imageModel}
-                  onChange={setImageModel}
-                  style={{ width: '100%', marginTop: 4 }}
-                  options={getImageModels().map((m: string) => ({ value: m, label: m }))}
-                />
+                <Text type="secondary"><Tag>模型名称</Tag></Text>
+                <Input value={imgModel} onChange={e => setImgModel(e.target.value)}
+                  placeholder="如 sd-xl, wanx-v1" />
               </div>
               <div>
-                <Text strong>
-                  <KeyOutlined style={{ marginRight: 4 }} />
-                  API Key {imageKeyMasked && <Tag style={{ fontSize: 11 }}>{imageKeyMasked}</Tag>}
-                </Text>
-                <Input.Password
-                  placeholder={imageKeyMasked ? '留空则沿用系统配置' : '输入你的 API Key（覆盖系统配置）'}
-                  value={imageApiKey}
-                  onChange={(e) => setImageApiKey(e.target.value)}
-                  style={{ marginTop: 4 }}
-                />
+                <Text type="secondary"><KeyOutlined /> API Key {imgKeyMask && <Tag style={{ fontSize: 11 }}>{imgKeyMask}</Tag>}</Text>
+                <Input.Password value={imgKey} onChange={e => setImgKey(e.target.value)}
+                  placeholder={imgKeyMask ? '留空则沿用已有 Key' : '输入 API Key'} />
               </div>
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                onClick={handleSave}
-                loading={saving}
-                block
-              >
-                保存我的配置
-              </Button>
             </Space>
           </Card>
         </Col>
       </Row>
 
-      <Divider />
+      <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving}
+        size="large" style={{ marginTop: 24, width: '100%', height: 48, borderRadius: 8 }}>
+        保存配置
+      </Button>
 
-      {/* System available providers */}
-      <Title level={5}>系统可用提供商</Title>
-      <Row gutter={[16, 16]}>
-        {[...(providers?.llm || []), ...(providers?.image || [])].map((p: any) => (
-          <Col key={p.name} xs={12} sm={8} lg={6}>
-            <Card size="small" style={{ borderRadius: 8 }}>
-              <Space direction="vertical" size={4}>
-                <Text strong>{p.label}</Text>
-                <Tag>{p.provider}</Tag>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  {p.configured ? '✅ 已配置' : '⚠️ 未配置'}
-                </Text>
-              </Space>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+      {/* 参考表 */}
+      <Card title="常见 API 参考" style={{ marginTop: 24, borderRadius: 8 }}>
+        <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+          以下为常见 AI 服务的 API 地址和模型名称，可直接复制填入上方设置。
+        </Text>
+        <Table dataSource={REFERENCE_DATA} columns={refColumns} rowKey="provider"
+          pagination={false} size="small" />
+      </Card>
     </DashboardLayout>
   );
 }
