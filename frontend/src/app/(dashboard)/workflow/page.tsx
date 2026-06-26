@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import {
   Card, Button, Typography, Space, message, Spin, Empty, App,
-  Tag, List, Tooltip, Popconfirm, Tabs, Alert, Table, Badge, Descriptions
+  Tag, List, Tooltip, Popconfirm, Tabs, Alert, Table, Badge, Descriptions,
+  Modal, Timeline
 } from 'antd';
 import {
   PlusOutlined, EditOutlined, DeleteOutlined, ApartmentOutlined,
@@ -28,6 +29,10 @@ export default function WorkflowDefsPage() {
   const [defs, setDefs] = useState<any[]>([]);
   const [instances, setInstances] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processModal, setProcessModal] = useState(false);
+  const [currentInst, setCurrentInst] = useState<any>(null);
+  const [processLoading, setProcessLoading] = useState(false);
+  const [instDetail, setInstDetail] = useState<any>(null);
   const router = useRouter();
 
   const fetchData = async () => {
@@ -70,6 +75,28 @@ export default function WorkflowDefsPage() {
     }
   };
 
+  const openProcess = async (inst: any) => {
+    setCurrentInst(inst);
+    try {
+      const res: any = await api.get(`/workflows/${inst.id}`);
+      setInstDetail(res.data || res);
+    } catch { setInstDetail(inst); }
+    setProcessModal(true);
+  };
+
+  const handleProceed = async (action: 'approve' | 'reject') => {
+    if (!currentInst) return;
+    setProcessLoading(true);
+    try {
+      await api.post(`/workflows/${currentInst.id}/proceed`, { action, comment: '' });
+      msg.success(action === 'approve' ? '✅ 已推进' : '❌ 已驳回');
+      setProcessModal(false);
+      fetchData();
+    } catch (err: any) {
+      msg.error(err.response?.data?.error?.message || '操作失败');
+    } finally { setProcessLoading(false); }
+  };
+
   const instColumns = [
     { title: '标题', dataIndex: 'title', key: 'title', ellipsis: true },
     {
@@ -99,7 +126,8 @@ export default function WorkflowDefsPage() {
               onClick={() => handleClaim(r.id)}>认领</Button>
           )}
           {r.is_mine && (
-            <Button size="small" type="primary" icon={<EyeOutlined />}>处理</Button>
+            <Button size="small" type="primary" icon={<EyeOutlined />}
+              onClick={() => openProcess(r)}>处理</Button>
           )}
         </Space>
       ),
@@ -193,6 +221,34 @@ export default function WorkflowDefsPage() {
           ),
         },
       ]} />
+
+      {/* 处理弹窗 */}
+      <Modal title={currentInst?.title} open={processModal}
+        onCancel={() => setProcessModal(false)}
+        footer={currentInst?.status === 'running' ? (
+          <Space>
+            <Button danger icon={<CloseCircleOutlined />}
+              onClick={() => handleProceed('reject')} loading={processLoading}>驳回</Button>
+            <Button type="primary" icon={<CheckCircleOutlined />}
+              onClick={() => handleProceed('approve')} loading={processLoading}>推进</Button>
+          </Space>
+        ) : null}
+        width={600}
+      >
+        <Descriptions column={2} size="small">
+          <Descriptions.Item label="状态">
+            <Tag color={STATUS_MAP[currentInst?.status]?.color}>{STATUS_MAP[currentInst?.status]?.label}</Tag>
+          </Descriptions.Item>
+          <Descriptions.Item label="当前节点"><Tag color="blue">{currentInst?.current_node}</Tag></Descriptions.Item>
+        </Descriptions>
+        <div style={{ marginTop: 16 }}>
+          <Title level={5}>操作历史</Title>
+          <Timeline items={instDetail?.nodes?.map((n: any) => ({
+            color: n.action === 'approve' ? 'green' : n.action === 'reject' ? 'red' : 'blue',
+            children: <span>{n.node_name} — {n.handler} <Tag>{n.action}</Tag></span>,
+          })) || []} />
+        </div>
+      </Modal>
     </DashboardLayout>
   );
 }
