@@ -24,6 +24,10 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           token: {
             colorPrimary: '#667eea',
             borderRadius: 8,
+            colorLink: '#667eea',
+            colorSuccess: '#52c41a',
+            colorWarning: '#faad14',
+            colorError: '#ff4d4f',
           },
         }}
       >

@@ -138,12 +138,20 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 8,
           fontSize: collapsed ? 16 : 20,
           fontWeight: 700,
-          color: themeToken.colorPrimary,
-          borderBottom: '1px solid #f0f0f0',
+          color: '#fff',
+          background: 'linear-gradient(135deg, #667eea, #764ba2)',
+          borderBottom: '1px solid rgba(255,255,255,0.1)',
         }}>
-          {collapsed ? 'SF' : 'StyleFlow'}
+          <div style={{
+            width: collapsed ? 24 : 32, height: collapsed ? 24 : 32, borderRadius: 8,
+            background: 'rgba(255,255,255,0.2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: collapsed ? 12 : 16, fontWeight: 700, color: '#fff',
+          }}>SF</div>
+          {!collapsed && 'StyleFlow'}
         </div>
         <Menu
           mode="inline"
