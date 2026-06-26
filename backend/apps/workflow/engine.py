@@ -35,8 +35,20 @@ class WorkflowEngine:
         return inst
 
     @staticmethod
+    def _check_role(instance: WorkflowInstance, user):
+        """检查用户角色是否有权限处理当前节点"""
+        def_id = instance.definition_id or instance.workflow_type
+        definition = WorkflowEngine.load_definition(def_id)
+        current = WorkflowEngine._get_node(definition, instance.current_node)
+        role = getattr(getattr(user, 'profile', None), 'role', None)
+        allowed = current.get('handler_role', [])
+        if role not in allowed:
+            raise ValueError(f'需要 {"/".join(allowed)} 角色才能操作，当前角色: {role}')
+
+    @staticmethod
     def claim(instance: WorkflowInstance, user) -> WorkflowInstance:
-        """认领当前节点任务（同一角色多人时，先到先得）"""
+        """认领当前节点任务（仅 handler_role 中的角色可认领）"""
+        WorkflowEngine._check_role(instance, user)
         if instance.assigned_to and instance.assigned_to != user:
             raise ValueError(f'该任务已被 {instance.assigned_to.username} 认领')
         if instance.status != 'running':
@@ -51,7 +63,7 @@ class WorkflowEngine:
         definition = WorkflowEngine.load_definition(def_id)
         current = WorkflowEngine._get_node(definition, instance.current_node)
 
-        # 检查认领
+        WorkflowEngine._check_role(instance, user)  # 角色校验
         if instance.assigned_to and instance.assigned_to != user:
             raise ValueError(f'该任务已被 {instance.assigned_to.username} 认领，需由TA处理')
 
