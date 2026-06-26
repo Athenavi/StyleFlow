@@ -100,12 +100,33 @@ def delete_def(request, def_id: int):
 
 # --- 工作流实例 ---
 
+class InstanceCreateIn(Schema):
+    definition_id: int
+    title: str
+    object_id: int = 0
+    data_snapshot: dict = {}
+
+
 @router.get('', response=List[WorkflowInstanceOut])
 def list_workflows(request, status: str = None):
     qs = WorkflowInstance.objects.all()
     if status:
         qs = qs.filter(status=status)
     return qs.order_by('-created_at')
+
+
+@router.post('', response=WorkflowInstanceOut)
+def create_workflow_instance(request, payload: InstanceCreateIn):
+    """从定义创建工作流实例"""
+    user = _get_user(request)
+    inst = WorkflowEngine.create_instance(
+        definition_id=payload.definition_id,
+        object_id=payload.object_id,
+        title=payload.title,
+        created_by=user,
+        data_snapshot=payload.data_snapshot,
+    )
+    return inst
 
 
 @router.get('/todos')
