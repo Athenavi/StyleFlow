@@ -58,30 +58,28 @@ export default function MediaPage() {
       return;
     }
 
-    // 转为 base64 临时上传（后续可改为直接 MinIO 上传）
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      const dataUrl = e.target?.result as string;
-      const img = new window.Image();
-      img.onload = async () => {
-        try {
-          await api.post('/media/upload', {
-            file_url: dataUrl,
-            title: file.name.replace(/\.[^.]+$/, ''),
-            file_type: ext.replace('.', '') === 'jpeg' ? 'jpg' : ext.replace('.', ''),
-            file_size: file.size,
-            width: img.width,
-            height: img.height,
-            category: category || 'other',
-          });
-          message.success('上传成功');
-          fetchMedia();
-        } catch { message.error('上传失败'); }
-      };
-      img.src = dataUrl;
-    };
-    reader.readAsDataURL(file);
-    return false; // 阻止默认上传
+    // multipart/form-data 上传到服务器
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('title', file.name.replace(/\.[^.]+$/, ''));
+    formData.append('category', category || 'other');
+
+    try {
+      // 直接用 fetch 发 multipart（跳过 api.ts 的 JSON 拦截器）
+      const token = localStorage.getItem('access_token');
+      const res = await fetch(
+        (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1') + '/media/upload',
+        {
+          method: 'POST',
+          headers: { Authorization: token ? `Bearer ${token}` : '' },
+          body: formData,
+        }
+      );
+      if (!res.ok) throw new Error('上传失败');
+      message.success('上传成功');
+      fetchMedia();
+    } catch { message.error('上传失败'); }
+    return false;
   };
 
   const handleDelete = async (id: number) => {

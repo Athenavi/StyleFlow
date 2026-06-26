@@ -9,6 +9,9 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-in-production
 # 生成命令: python -c "import secrets; print(secrets.token_urlsafe(32))"
 API_KEY_ENCRYPTION_KEY = os.getenv('API_KEY_ENCRYPTION_KEY', '')
 
+# 文件存储后端: local | s3
+STORAGE_BACKEND = os.getenv('STORAGE_BACKEND', 'local')
+
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']

@@ -26,8 +26,8 @@ class UserMedia(TimestampMixin):
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='media_files')
     title = models.CharField(max_length=200, blank=True)
-    file_url = models.URLField(max_length=500)
-    thumbnail_url = models.URLField(max_length=500, blank=True)
+    file_url = models.TextField(help_text='图片URL（支持 base64 data URL）')
+    thumbnail_url = models.TextField(blank=True)
     file_type = models.CharField(max_length=20, choices=[
         ('jpg', 'JPEG'), ('png', 'PNG'), ('webp', 'WebP'), ('gif', 'GIF'),
     ])

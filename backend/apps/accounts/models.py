@@ -17,6 +17,7 @@ class Profile(models.Model):
     avatar = models.URLField(blank=True)
     phone = models.CharField(max_length=20, blank=True)
     erp_user_id = models.CharField(max_length=50, blank=True, help_text='ERP系统用户ID')
+    storage_uuid = models.CharField(max_length=16, blank=True, help_text='用户文件存储目录UUID')
 
     class Meta:
         db_table = 'accounts_profile'
