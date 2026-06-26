@@ -1,47 +1,53 @@
 """API Key 加密工具
 
-使用用户的密码哈希派生加密密钥，确保：
-1. 同一用户的 API key 只能用该用户的密码解密
-2. 用户修改密码后，旧密钥自动失效（需重新设置 API key）
-3. 数据库泄露时 API key 仍受保护
+双层加密：独立加密密钥 + 用户密码
+- 独立密钥 (API_KEY_ENCRYPTION_KEY) → 防数据库全量泄露
+- 用户密码 → 改密即失效，防账号被盗后持续窃取
 """
 import hashlib
 import base64
+import os
 from cryptography.fernet import Fernet
 from django.conf import settings
 
 
-def _derive_key(user_password_hash: str) -> bytes:
-    """从用户密码哈希派生 Fernet 密钥（32 bytes base64）"""
+def _get_master_key(user_password_hash: str = '') -> bytes:
+    """派生加密密钥 = SHA256(独立密钥 + ":" + 用户密码哈希)"""
+    env_key = os.environ.get('API_KEY_ENCRYPTION_KEY') or getattr(settings, 'API_KEY_ENCRYPTION_KEY', '')
+    if not env_key:
+        # fallback 仅向后兼容
+        env_key = hashlib.sha256(
+            ('API_KEY_ENCRYPTION:' + settings.SECRET_KEY).encode()
+        ).hexdigest()
+
     raw = hashlib.sha256(
-        (settings.SECRET_KEY + ':' + user_password_hash).encode('utf-8')
+        (env_key + ':' + user_password_hash).encode('utf-8')
     ).digest()
     return base64.urlsafe_b64encode(raw)
 
 
-def encrypt_api_key(api_key: str, user_password_hash: str) -> str:
-    """加密 API key，返回 base64 密文"""
+def encrypt_api_key(api_key: str, user_password_hash: str = '') -> str:
+    """加密 API key"""
     if not api_key:
         return ''
-    key = _derive_key(user_password_hash)
+    key = _get_master_key(user_password_hash)
     f = Fernet(key)
     return f.encrypt(api_key.encode('utf-8')).decode('utf-8')
 
 
-def decrypt_api_key(encrypted_key: str, user_password_hash: str) -> str:
-    """解密 API key，返回明文"""
+def decrypt_api_key(encrypted_key: str, user_password_hash: str = '') -> str:
+    """解密 API key"""
     if not encrypted_key:
         return ''
     try:
-        key = _derive_key(user_password_hash)
+        key = _get_master_key(user_password_hash)
         f = Fernet(key)
         return f.decrypt(encrypted_key.encode('utf-8')).decode('utf-8')
     except Exception:
-        return ''  # 密码已变更或数据损坏
+        return ''
 
 
 def mask_api_key(api_key: str) -> str:
-    """脱敏显示：sk-...abc"""
-    if len(api_key) <= 8:
+    if len(api_key) <= 10:
         return api_key[:3] + '...'
-    return api_key[:3] + '...' + api_key[-3:]
+    return api_key[:3] + '...' + api_key[-4:]

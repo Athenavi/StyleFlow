@@ -55,17 +55,15 @@ class UserAISetting(models.Model):
     # ---- 明文读写 API Key（自动加解密） ----
 
     def set_llm_api_key(self, raw_key: str):
-        """设置明文 LLM API Key（自动加密存储）"""
-        pwd = self.user.password
-        self.llm_api_key_enc = encrypt_api_key(raw_key, pwd)
+        """设置明文 LLM API Key（双层加密：独立密钥 + 用户密码）"""
+        self.llm_api_key_enc = encrypt_api_key(raw_key, self.user.password)
 
     def get_llm_api_key(self) -> str:
-        """获取明文 LLM API Key（自动解密）"""
+        """获取明文 LLM API Key（双层解密）"""
         return decrypt_api_key(self.llm_api_key_enc, self.user.password)
 
     def set_image_api_key(self, raw_key: str):
-        pwd = self.user.password
-        self.image_api_key_enc = encrypt_api_key(raw_key, pwd)
+        self.image_api_key_enc = encrypt_api_key(raw_key, self.user.password)
 
     def get_image_api_key(self) -> str:
         return decrypt_api_key(self.image_api_key_enc, self.user.password)

@@ -5,6 +5,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'dev-secret-key-change-in-production')
 
+# API Key 独立加密密钥（与 SECRET_KEY 不同，永不落库）
+# 生成命令: python -c "import secrets; print(secrets.token_urlsafe(32))"
+API_KEY_ENCRYPTION_KEY = os.getenv('API_KEY_ENCRYPTION_KEY', '')
+
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
