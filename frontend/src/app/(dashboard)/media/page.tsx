@@ -27,7 +27,8 @@ const CATEGORIES = [
 
 export default function MediaPage() {
   const { message } = App.useApp();
-  const [media, setMedia] = useState<any[]>([]);
+  const [activeMedia, setActiveMedia] = useState<any[]>([]);
+  const [trashMedia, setTrashMedia] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
@@ -40,17 +41,18 @@ export default function MediaPage() {
     setLoading(true);
     setSelected([]);
     try {
-      const params: any = {};
-      if (category) params.category = category;
-      if (search) params.search = search;
-      if (tab === 'trash') params.trash = true;
-      const res: any = await api.get('/media', { params });
-      setMedia(res.data || res.results || res || []);
+      // 同时获取正常和回收站数据
+      const [activeRes, trashRes] = await Promise.all([
+        api.get('/media', { category: category || undefined, search: search || undefined }),
+        api.get('/media', { category: category || undefined, search: search || undefined, trash: true }),
+      ]);
+      setActiveMedia(activeRes.data || activeRes.results || activeRes || []);
+      setTrashMedia(trashRes.data || trashRes.results || trashRes || []);
     } catch { message.error('加载失败'); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchMedia(); }, [category, tab]);
+  useEffect(() => { fetchMedia(); }, [category, search]);
 
   const handleUpload = async (file: File) => {
     const ext = '.' + file.name.split('.').pop()?.toLowerCase();
@@ -111,9 +113,9 @@ export default function MediaPage() {
     setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
-  const renderGrid = () => {
+  const renderGrid = (items: any[]) => {
     if (loading) return <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>;
-    if (media.length === 0) return <Empty description={tab === 'trash' ? '回收站为空' : '暂无素材'} style={{ padding: 80 }} />;
+    if (items.length === 0) return <Empty description={tab === 'trash' ? '回收站为空' : '暂无素材'} style={{ padding: 80 }} />;
 
     return <>
       {selected.length > 0 && (
@@ -135,7 +137,7 @@ export default function MediaPage() {
       )}
 
       <Row gutter={[12, 12]}>
-        {media.map(item => (
+        {items.map(item => (
           <Col key={item.id} xs={12} sm={8} md={6} lg={4}>
             <Card size="small" hoverable
               style={{ borderRadius: 6, outline: selected.includes(item.id) ? '2px solid #1677ff' : 'none' }}
@@ -189,8 +191,8 @@ export default function MediaPage() {
       </Card>
 
       <Tabs activeKey={tab} onChange={setTab} items={[
-        { key: 'active', label: `📁 我的素材 (${tab === 'active' ? media.length : '...'})`, children: renderGrid() },
-        { key: 'trash', label: `🗑️ 回收站`, children: renderGrid() },
+        { key: 'active', label: `📁 我的素材 (${activeMedia.length})`, children: renderGrid(activeMedia) },
+        { key: 'trash', label: `🗑️ 回收站 (${trashMedia.length})`, children: renderGrid(trashMedia) },
       ]} />
 
       {/* 批量分类弹窗 */}
