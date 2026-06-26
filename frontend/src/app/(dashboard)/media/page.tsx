@@ -83,13 +83,19 @@ export default function MediaPage() {
     try { await api.post(`/media/restore/${id}`); message.success('已恢复'); fetchMedia(); } catch { message.error('失败'); }
   };
 
+  const handlePermanentDelete = async (id: number) => {
+    try { await api.post(`/media/permanent-delete/${id}`); message.success('已永久删除'); fetchMedia(); } catch { message.error('失败'); }
+  };
+
   const handleBatchDelete = async () => {
     if (selected.length === 0) return;
-    const action = tab === 'trash' ? 'empty' : 'batch-delete';
     try {
       if (tab === 'trash') {
-        await api.post('/media/empty-trash');
-        message.success('已清空回收站');
+        // 批量永久删除已选项
+        for (const id of selected) {
+          await api.post(`/media/permanent-delete/${id}`);
+        }
+        message.success(`${selected.length} 项已永久删除`);
       } else {
         await api.post('/media/batch-delete', { ids: selected });
         message.success(`${selected.length} 项已移入回收站`);
@@ -131,6 +137,13 @@ export default function MediaPage() {
                 {tab === 'trash' ? '永久删除' : '批量删除'}
               </Button>
             </Popconfirm>
+            {tab === 'trash' && (
+              <Popconfirm title="清空回收站全部文件？不可恢复！" onConfirm={async () => {
+                try { await api.post('/media/empty-trash'); message.success('已清空'); fetchMedia(); } catch { message.error('失败'); }
+              }}>
+                <Button size="small" danger icon={<DeleteFilled />}>清空全部</Button>
+              </Popconfirm>
+            )}
             <Button size="small" onClick={() => setSelected([])}>取消选择</Button>
           </Space>
         </Card>
@@ -150,6 +163,9 @@ export default function MediaPage() {
               </div>}
               actions={tab === 'trash' ? [
                 <Tooltip title="恢复" key="restore"><UndoOutlined onClick={() => handleRestore(item.id)} /></Tooltip>,
+                <Popconfirm title="永久删除？不可恢复" key="del">
+                  <Tooltip title="永久删除"><DeleteFilled style={{ color: '#ff4d4f' }} onClick={() => handlePermanentDelete(item.id)} /></Tooltip>
+                </Popconfirm>,
               ] : [
                 <Tooltip title="复制链接" key="copy"><LinkOutlined onClick={() => copyUrl(item.file_url)} /></Tooltip>,
                 <Popconfirm title="移入回收站？" key="del"><DeleteOutlined onClick={() => handleDelete(item.id)} /></Popconfirm>,

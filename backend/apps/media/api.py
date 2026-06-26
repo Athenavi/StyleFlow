@@ -129,13 +129,23 @@ def restore_media(request, media_id: int):
 
 @router.post('/empty-trash')
 def empty_trash(request):
-    """清空回收站（永久删除文件和数据库记录）"""
+    """清空回收站（全部永久删除）"""
     user = _get_user(request)
     items = UserMedia.objects.filter(user=user, is_active=False)
     for item in items:
         delete_file(item.file_url)
     deleted, _ = items.delete()
     return {'permanently_deleted': deleted}
+
+
+@router.post('/permanent-delete/{media_id}')
+def permanent_delete(request, media_id: int):
+    """从回收站永久删除单个文件"""
+    user = _get_user(request)
+    media = UserMedia.objects.get(id=media_id, user=user, is_active=False)
+    delete_file(media.file_url)
+    media.delete()
+    return {'deleted': True}
 
 
 @router.delete('/{media_id}', response={204: None})
