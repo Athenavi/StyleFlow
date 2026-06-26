@@ -32,11 +32,19 @@ class WorkflowEngine:
             data_snapshot=data_snapshot or {}, definition=definition,
         )
         inst.nodes.create(node_name=wf_def['initial'], action='start')
+
+        # 如果起始节点是自动推进的，创建后直接推进
+        initial_def = WorkflowEngine._get_node(wf_def, wf_def['initial'])
+        if initial_def.get('auto_proceed'):
+            inst = WorkflowEngine.proceed(inst, created_by, 'approve', 'auto')
+
         return inst
 
     @staticmethod
-    def _check_role(instance: WorkflowInstance, user):
-        """检查用户角色是否有权限处理当前节点"""
+    def _check_role(instance: WorkflowInstance, user, action='approve'):
+        """检查用户角色是否有权限处理当前节点（auto 操作跳过角色校验）"""
+        if action == 'auto':
+            return  # 自动推进不检查角色
         def_id = instance.definition_id or instance.workflow_type
         definition = WorkflowEngine.load_definition(def_id)
         current = WorkflowEngine._get_node(definition, instance.current_node)
@@ -48,7 +56,7 @@ class WorkflowEngine:
     @staticmethod
     def claim(instance: WorkflowInstance, user) -> WorkflowInstance:
         """认领当前节点任务（仅 handler_role 中的角色可认领）"""
-        WorkflowEngine._check_role(instance, user)
+        WorkflowEngine._check_role(instance, user, 'claim')
         if instance.assigned_to and instance.assigned_to != user:
             raise ValueError(f'该任务已被 {instance.assigned_to.username} 认领')
         if instance.status != 'running':
@@ -63,7 +71,7 @@ class WorkflowEngine:
         definition = WorkflowEngine.load_definition(def_id)
         current = WorkflowEngine._get_node(definition, instance.current_node)
 
-        WorkflowEngine._check_role(instance, user)  # 角色校验
+        WorkflowEngine._check_role(instance, user, action)  # 角色校验（auto 跳过）
         if instance.assigned_to and instance.assigned_to != user:
             raise ValueError(f'该任务已被 {instance.assigned_to.username} 认领，需由TA处理')
 
@@ -86,8 +94,13 @@ class WorkflowEngine:
         next_def = WorkflowEngine._get_node(definition, nxt)
         instance.current_node = nxt
         instance.status = 'completed' if not next_def.get('next') else 'running'
-        instance.assigned_to = None  # 进入下一节点，清除认领
+        instance.assigned_to = None
         instance.save()
+
+        # 自动推进：如果下一节点是自动推进的，直接继续走
+        if instance.status == 'running' and next_def.get('auto_proceed'):
+            instance = WorkflowEngine.proceed(instance, user, 'approve', 'auto')
+
         return instance
 
     @staticmethod
