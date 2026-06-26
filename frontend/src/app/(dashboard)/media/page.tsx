@@ -43,8 +43,8 @@ export default function MediaPage() {
     try {
       // 同时获取正常和回收站数据
       const [activeRes, trashRes] = await Promise.all([
-        api.get('/media', { category: category || undefined, search: search || undefined }),
-        api.get('/media', { category: category || undefined, search: search || undefined, trash: true }),
+        api.get('/media', { ...(category ? { category } : {}), ...(search ? { search } : {}) }),
+        api.get('/media', { ...(category ? { category } : {}), ...(search ? { search } : {}), trash: true }),
       ]);
       setActiveMedia(activeRes.data || activeRes.results || activeRes || []);
       setTrashMedia(trashRes.data || trashRes.results || trashRes || []);
