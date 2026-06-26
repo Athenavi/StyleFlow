@@ -48,12 +48,11 @@ export default function DesignGalleryPage() {
       if (search) params.search = search;
 
       if (tab === 'personal') {
-        const res: any = await api.get('/designs', { params });
+        const res: any = await api.get('/designs', params);
         setDesigns(res.data || res.results || res || []);
         setPublicDesigns([]);
       } else {
-        // 公共设计稿库：从一个宽泛的查询获取所有设计稿（可根据后续is_public字段扩展）
-        const res: any = await api.get('/designs', { params });
+        const res: any = await api.get('/designs', params);
         setPublicDesigns(res.data || res.results || res || []);
         setDesigns([]);
       }

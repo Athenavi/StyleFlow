@@ -31,6 +31,7 @@ class DesignCreateIn(Schema):
     width: int = 512
     height: int = 768
     tags: List[str] = []
+    image_url: str = ''
 
 
 class DesignUpdateIn(Schema):

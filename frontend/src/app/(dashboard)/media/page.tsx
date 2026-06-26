@@ -211,17 +211,21 @@ export default function MediaPage() {
         { key: 'trash', label: (
           <Space>
             <span>🗑️ 回收站 ({trashMedia.length})</span>
-            {trashMedia.length > 0 && (
-              <Popconfirm title="确定清空回收站？所有文件将被永久删除，不可恢复！" onConfirm={async () => {
-                try { await api.post('/media/empty-trash'); message.success('回收站已清空'); fetchMedia(); } catch { message.error('失败'); }
-              }}>
-                <Button size="small" danger type="primary" style={{ fontSize: 11, height: 22, lineHeight: '22px', padding: '0 8px' }}>
-                  清空全部
-                </Button>
-              </Popconfirm>
-            )}
           </Space>
-        ), children: renderGrid(trashMedia) },
+        ), children: (
+          <>
+            {trashMedia.length > 0 && (
+              <div style={{ marginBottom: 12, textAlign: 'right' }}>
+                <Popconfirm title="确定清空回收站？所有文件将被永久删除，不可恢复！" onConfirm={async () => {
+                  try { await api.post('/media/empty-trash'); message.success('回收站已清空'); fetchMedia(); } catch { message.error('失败'); }
+                }}>
+                  <Button danger type="primary" size="small" icon={<DeleteFilled />}>清空全部</Button>
+                </Popconfirm>
+              </div>
+            )}
+            {renderGrid(trashMedia)}
+          </>
+        ) },
       ]} />
 
       {/* 批量分类弹窗 */}

@@ -9,8 +9,19 @@ from .schemas import (
     GenerateIn, GenerateOut, TaskStatusOut, DesignVersionOut,
 )
 from .tasks import generate_design_task
+from apps.accounts.auth import get_user_from_token
 
 router = Router(tags=['设计工坊'])
+
+
+def _get_user(request):
+    auth = request.headers.get('Authorization', '')
+    token = auth[7:] if auth.startswith('Bearer ') else ''
+    user = get_user_from_token(token)
+    if not user:
+        from ninja.errors import HttpError
+        raise HttpError(401, '未认证')
+    return user
 
 
 @router.get('', response=List[DesignOut])
@@ -20,7 +31,8 @@ def list_designs(request,
                  status: Optional[str] = None,
                  search: Optional[str] = None):
     """设计稿列表（分页+筛选）"""
-    qs = Design.objects.filter(creator=request.user, is_active=True)
+    user = _get_user(request)
+    qs = Design.objects.filter(creator=user, is_active=True)
     if category:
         qs = qs.filter(category=category)
     if status:
@@ -33,8 +45,9 @@ def list_designs(request,
 @router.post('', response=DesignOut)
 def create_design(request, payload: DesignCreateIn):
     """手动创建设计稿"""
+    user = _get_user(request)
     design = Design.objects.create(
-        creator=request.user,
+        creator=user,
         title=payload.title,
         prompt=payload.prompt,
         negative_prompt=payload.negative_prompt,
@@ -42,6 +55,7 @@ def create_design(request, payload: DesignCreateIn):
         width=payload.width,
         height=payload.height,
         tags=payload.tags,
+        image_url=payload.image_url,
     )
     return design
 
