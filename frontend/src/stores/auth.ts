@@ -1,5 +1,24 @@
 import { create } from 'zustand';
-import api from '@/lib/api';
+
+// 内联 API 调用（避免 Turbopack 路径别名解析问题）
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+
+async function apiRequest(path: string, options: RequestInit = {}): Promise<any> {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string> || {}),
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  const data = await res.json();
+
+  if (!res.ok) {
+    throw { response: { data, status: res.status } };
+  }
+  return data;
+}
 
 interface User {
   id: number;
@@ -14,7 +33,6 @@ interface AuthState {
   user: User | null;
   token: string | null;
   loading: boolean;
-  setAuth: (user: User, token: string, refreshToken?: string) => void;
   login: (username: string, password: string) => Promise<void>;
   register: (data: { username: string; password: string; email: string; role: string }) => Promise<void>;
   logout: () => void;
@@ -22,27 +40,25 @@ interface AuthState {
   isAuthenticated: () => boolean;
 }
 
-export const useAuthStore = create<AuthState>((set, get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: null,
   loading: false,
 
-  setAuth: (user, token, refreshToken) => {
-    localStorage.setItem('access_token', token);
-    if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
-    set({ user, token });
-  },
-
   login: async (username, password) => {
     set({ loading: true });
     try {
-      const res: any = await api.post('/auth/login', { username, password });
+      const res = await apiRequest('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ username, password }),
+      });
       const { access_token, refresh_token } = res;
-      // Fetch user info
       localStorage.setItem('access_token', access_token);
-      const meRes: any = await api.get('/auth/me');
-      const user = meRes.data || meRes;
-      get().setAuth(user, access_token, refresh_token);
+      if (refresh_token) localStorage.setItem('refresh_token', refresh_token);
+
+      const me = await apiRequest('/auth/me');
+      const user = me.data || me;
+      set({ user, token: access_token });
     } finally {
       set({ loading: false });
     }
@@ -51,7 +67,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (data) => {
     set({ loading: true });
     try {
-      await api.post('/auth/register', data);
+      await apiRequest('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
     } finally {
       set({ loading: false });
     }
@@ -61,13 +80,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     set({ user: null, token: null });
+    window.location.href = '/login';
   },
 
   fetchMe: async () => {
     const token = localStorage.getItem('access_token');
     if (!token) return;
     try {
-      const res: any = await api.get('/auth/me');
+      const res = await apiRequest('/auth/me');
       const user = res.data || res;
       set({ user, token });
     } catch {
