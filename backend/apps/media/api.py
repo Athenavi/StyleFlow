@@ -48,8 +48,9 @@ def _get_user(request):
 
 
 @router.get('', response=List[MediaOut])
-def list_media(request, category: str = None, search: str = None, trash: bool = False):
-    """我的媒体库列表"""
+def list_media(request, category: str = None, search: str = None, trash: bool = False,
+                page: int = 1, page_size: int = 50):
+    """我的媒体库列表（分页+分类筛选）"""
     user = _get_user(request)
     qs = UserMedia.objects.filter(user=user, is_active=not trash)
     if category:
@@ -57,7 +58,9 @@ def list_media(request, category: str = None, search: str = None, trash: bool = 
     if search:
         from django.db import models
         qs = qs.filter(models.Q(title__icontains=search) | models.Q(tags__contains=search))
-    return qs[:200]
+    total = qs.count()
+    qs = qs.order_by('-created_at')[(page - 1) * page_size:page * page_size]
+    return qs
 
 
 @router.post('/upload', response=MediaUploadOut)

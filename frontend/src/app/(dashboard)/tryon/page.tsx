@@ -49,12 +49,16 @@ export default function TryonPage() {
     try { const res: any = await api.get('/tryon/tasks'); setHistory(res.data || res.results || res || []); } catch { /* ignore */ }
   };
 
-  const fetchMedia = async () => {
-    try { const res: any = await api.get('/media'); setMediaList(res.data || res.results || res || []); } catch { /* ignore */ }
+  const fetchMedia = async (type: 'person' | 'garment') => {
+    try {
+      const cat = type === 'person' ? 'model' : 'garment';
+      const res: any = await api.get('/media', { category: cat });
+      setMediaList(res.data || res.results || res || []);
+    } catch { /* ignore */ }
   };
 
   const openMediaPicker = (type: 'person' | 'garment') => {
-    fetchMedia();
+    fetchMedia(type);
     setMediaPicker({ type, visible: true });
   };
 
