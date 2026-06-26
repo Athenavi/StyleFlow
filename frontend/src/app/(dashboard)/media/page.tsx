@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Card, Row, Col, Upload, Button, Typography, message, Space,
+  Card, Row, Col, Upload, Button, Typography, App, Space,
   Image, Tag, Spin, Empty, Modal, Select, Input, Tooltip
 } from 'antd';
 import {
@@ -27,6 +27,7 @@ const CATEGORIES = [
 const FILE_TYPES = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
 
 export default function MediaPage() {
+  const { message } = App.useApp();
   const [media, setMedia] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState('');
