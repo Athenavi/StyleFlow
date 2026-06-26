@@ -50,20 +50,28 @@ def list_media(request, category: str = None, search: str = None):
     return qs[:100]
 
 
+class MediaUploadIn(Schema):
+    file_url: str
+    title: str = ''
+    category: str = 'other'
+    file_type: str = 'png'
+    file_size: int = 0
+    width: int = 0
+    height: int = 0
+
+
 @router.post('/upload', response=MediaUploadOut)
-def upload_media(request):
+def upload_media(request, payload: MediaUploadIn):
     """上传媒体文件（仅支持图片：jpg/png/webp/gif，最大10MB）"""
-    import json
     user = _get_user(request)
 
-    body = json.loads(request.body)
-    file_url = body.get('file_url', '')
-    title = body.get('title', '')
-    category = body.get('category', 'other')
-    file_type = body.get('file_type', 'png')
-    file_size = body.get('file_size', 0)
-    width = body.get('width', 0)
-    height = body.get('height', 0)
+    file_url = payload.file_url
+    title = payload.title
+    category = payload.category
+    file_type = payload.file_type
+    file_size = payload.file_size
+    width = payload.width
+    height = payload.height
 
     # 类型校验
     if file_type not in dict(UserMedia._meta.get_field('file_type').choices):
