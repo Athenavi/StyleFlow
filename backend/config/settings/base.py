@@ -11,6 +11,8 @@ API_KEY_ENCRYPTION_KEY = os.getenv('API_KEY_ENCRYPTION_KEY', '')
 
 # 文件存储后端: local | s3
 STORAGE_BACKEND = os.getenv('STORAGE_BACKEND', 'local')
+# 后端服务地址（用于生成文件访问 URL）
+BACKEND_BASE_URL = os.getenv('BACKEND_BASE_URL', 'http://localhost:8000')
 
 DEBUG = True
 

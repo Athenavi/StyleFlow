@@ -62,7 +62,9 @@ def _save_local(file_content: bytes, rel_path: str) -> str:
     full_path = Path(settings.MEDIA_ROOT) / rel_path
     full_path.parent.mkdir(parents=True, exist_ok=True)
     full_path.write_bytes(file_content)
-    return f"{settings.MEDIA_URL}{rel_path}"
+    # 返回完整 URL（同时适配前后端分离）
+    base = getattr(settings, 'BACKEND_BASE_URL', 'http://localhost:8000')
+    return f"{base}{settings.MEDIA_URL}{rel_path}"
 
 
 def _save_s3(file_content: bytes, rel_path: str) -> str:
