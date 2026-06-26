@@ -8,6 +8,24 @@ from apps.techpack.models import TechPack
 router = Router(tags=['核工价'])
 
 
+class CostingListOut(Schema):
+    id: int
+    techpack_id: int
+    total_labor_cost: float
+    total_material_cost: float
+    approved: bool
+    created_at: str = ''
+
+    @staticmethod
+    def resolve_created_at(obj):
+        return obj.created_at.isoformat() if obj.created_at else ''
+
+
+@router.get('/list', response=List[CostingListOut])
+def list_costings(request):
+    return CostingResult.objects.all().order_by('-created_at')[:50]
+
+
 class CostingOut(Schema):
     id: int
     techpack_id: int

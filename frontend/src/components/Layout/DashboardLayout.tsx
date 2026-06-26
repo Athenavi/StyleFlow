@@ -23,26 +23,6 @@ import { useAuthStore } from '@/stores/auth';
 
 const { Header, Sider, Content } = Layout;
 
-const menuItems = [
-  { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
-  {
-    key: 'design',
-    icon: <PictureOutlined />,
-    label: 'AI 设计工坊',
-    children: [
-      { key: '/design/generate', icon: <ThunderboltOutlined />, label: 'AI 生成' },
-      { key: '/design/gallery', icon: <PictureOutlined />, label: '设计稿库' },
-    ],
-  },
-  { key: '/tryon', icon: <ThunderboltOutlined />, label: '虚拟试衣' },
-  { key: '/techpack', icon: <FileTextOutlined />, label: '工艺单' },
-  { key: '/workflow', icon: <ApartmentOutlined />, label: '工作流' },
-  { key: '/costing', icon: <CalculatorOutlined />, label: '核工价' },
-  { key: '/wages', icon: <DollarOutlined />, label: '计件工资' },
-  { key: '/erp', icon: <DatabaseOutlined />, label: 'ERP 数据' },
-  { key: '/media', icon: <FolderOutlined />, label: '媒体库' },
-  { key: '/admin/settings', icon: <SettingOutlined />, label: 'AI 配置' },
-];
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -55,6 +35,53 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { user, logout, isAuthenticated, fetchMe } = useAuthStore();
   const { token: themeToken } = theme.useToken();
+
+  const role = user?.role || '';
+
+  // 基于角色的菜单栏
+  const menuItems: any[] = [
+    { key: '/dashboard', icon: <DashboardOutlined />, label: '工作台' },
+  ];
+
+  // 设计师/版师 可见
+  if (['designer', 'pattern_maker', 'admin'].includes(role)) {
+    menuItems.push({
+      key: 'design', icon: <PictureOutlined />, label: 'AI 设计工坊',
+      children: [
+        { key: '/design/generate', icon: <ThunderboltOutlined />, label: 'AI 生成' },
+        { key: '/design/gallery', icon: <PictureOutlined />, label: '设计稿库' },
+      ],
+    });
+  }
+
+  // 所有人可见
+  menuItems.push(
+    { key: '/tryon', icon: <ThunderboltOutlined />, label: '虚拟试衣' },
+  );
+
+  if (['pattern_maker', 'designer', 'admin'].includes(role)) {
+    menuItems.push({ key: '/techpack', icon: <FileTextOutlined />, label: '工艺单' });
+  }
+
+  menuItems.push(
+    { key: '/workflow', icon: <ApartmentOutlined />, label: '工作流' },
+  );
+
+  if (['accountant', 'admin'].includes(role)) {
+    menuItems.push(
+      { key: '/costing', icon: <CalculatorOutlined />, label: '核工价' },
+      { key: '/wages', icon: <DollarOutlined />, label: '计件工资' },
+    );
+  }
+
+  menuItems.push(
+    { key: '/erp', icon: <DatabaseOutlined />, label: 'ERP 数据' },
+    { key: '/media', icon: <FolderOutlined />, label: '媒体库' },
+  );
+
+  if (role === 'admin') {
+    menuItems.push({ key: '/admin/settings', icon: <SettingOutlined />, label: 'AI 配置' });
+  }
 
   // On mount: verify token and fetch user
   useEffect(() => {
