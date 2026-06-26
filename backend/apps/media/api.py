@@ -82,22 +82,31 @@ def upload_media(request, title: str = Form(''), category: str = Form('other'),
     return {'id': media.id, 'file_url': media.file_url, 'title': media.title}
 
 
+class IdsIn(Schema):
+    ids: List[int]
+
+
+class BatchCatIn(Schema):
+    ids: List[int]
+    category: str
+
+
 @router.patch('/batch-category')
-def batch_category(request, ids: List[int], category: str):
+def batch_category(request, payload: BatchCatIn):
     """批量修改分类"""
     user = _get_user(request)
-    if category not in dict(UserMedia.CATEGORY_CHOICES):
+    if payload.category not in dict(UserMedia.CATEGORY_CHOICES):
         from ninja.errors import HttpError
         raise HttpError(400, '无效分类')
-    updated = UserMedia.objects.filter(id__in=ids, user=user).update(category=category)
+    updated = UserMedia.objects.filter(id__in=payload.ids, user=user).update(category=payload.category)
     return {'updated': updated}
 
 
 @router.post('/batch-delete')
-def batch_delete(request, ids: List[int]):
+def batch_delete(request, payload: IdsIn):
     """批量删除（移入回收站）"""
     user = _get_user(request)
-    updated = UserMedia.objects.filter(id__in=ids, user=user).update(is_active=False)
+    updated = UserMedia.objects.filter(id__in=payload.ids, user=user).update(is_active=False)
     return {'moved_to_trash': updated}
 
 
