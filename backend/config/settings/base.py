@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'apps.costing',
     'apps.wages',
     'apps.erp',
+    'apps.media',
 ]
 
 MIDDLEWARE = [
