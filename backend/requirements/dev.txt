@@ -1,0 +1,8 @@
+-r base.txt
+django-extensions>=4.1
+pytest>=9.0
+pytest-django>=4.12
+pytest-cov>=7.0
+factory-boy>=3.3
+requests-mock>=1.12
+ipython>=8.0

@@ -1,0 +1,57 @@
+{
+  "name": "款式开发流程",
+  "initial": "planning",
+  "nodes": [
+    {
+      "name": "planning",
+      "label": "商品企划",
+      "handler_role": ["designer"],
+      "auto_proceed": true,
+      "next": ["designing"]
+    },
+    {
+      "name": "designing",
+      "label": "设计出款",
+      "handler_role": ["designer"],
+      "auto_proceed": false,
+      "next": ["review"]
+    },
+    {
+      "name": "review",
+      "label": "设计评审",
+      "handler_role": ["admin"],
+      "auto_proceed": false,
+      "next": ["techpack"],
+      "reject_to": "designing"
+    },
+    {
+      "name": "techpack",
+      "label": "工艺单制作",
+      "handler_role": ["pattern_maker"],
+      "auto_proceed": true,
+      "next": ["costing"]
+    },
+    {
+      "name": "costing",
+      "label": "核工价",
+      "handler_role": ["accountant", "admin"],
+      "auto_proceed": false,
+      "next": ["approval"]
+    },
+    {
+      "name": "approval",
+      "label": "最终审批",
+      "handler_role": ["admin"],
+      "auto_proceed": false,
+      "next": ["released"],
+      "reject_to": "techpack"
+    },
+    {
+      "name": "released",
+      "label": "已发布",
+      "handler_role": [],
+      "auto_proceed": false,
+      "next": []
+    }
+  ]
+}
