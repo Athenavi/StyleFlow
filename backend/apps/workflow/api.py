@@ -161,33 +161,35 @@ BUILTIN_TEMPLATES = {
 def install_builtin(request, template_name: str):
     """安装内置工作流模板"""
     user = _get_user(request)
-    if template_name not in BUILTIN_TEMPLATES:
+    # URL 解码后匹配
+    from urllib.parse import unquote
+    name = unquote(template_name)
+    if name not in BUILTIN_TEMPLATES:
         from ninja.errors import HttpError
-        raise HttpError(404, f'模板 {template_name} 不存在')
-    tpl = BUILTIN_TEMPLATES[template_name]
+        raise HttpError(404, f'模板不存在: {name}')
+    tpl = BUILTIN_TEMPLATES[name]
     count = WorkflowDefinition.objects.filter(user=user).count()
     if count >= MAX_DEFINITIONS:
         from ninja.errors import HttpError
         raise HttpError(400, f'最多 {MAX_DEFINITIONS} 条')
-    exists = WorkflowDefinition.objects.filter(user=user, name=template_name).exists()
+    exists = WorkflowDefinition.objects.filter(user=user, name=name).exists()
     if exists:
         from ninja.errors import HttpError
-        raise HttpError(400, '已安装该模板')
+        raise HttpError(400, '已安装该模板，请勿重复安装')
     wd = WorkflowDefinition.objects.create(
-        user=user, name=template_name, description=tpl['description'],
+        user=user, name=name, description=tpl['description'],
         initial=tpl['initial'], nodes=tpl.get('nodes', []),
     )
-    return wd
+    # 返回简单的成功响应，避免序列化复杂对象
+    return {'id': wd.id, 'name': wd.name, 'nodes': len(wd.nodes)}
 
 
-@router.get('/builtin', response=List[DefOut])
+@router.get('/builtin')
 def list_builtin(request):
     """列出所有内置模板"""
     return [
         {'id': 0, 'name': k, 'description': v['description'],
-         'initial': v['initial'],
-         'nodes': v.get('nodes', []),
-         'created_at': ''}
+         'initial': v['initial'], 'nodes': v.get('nodes', [])}
         for k, v in BUILTIN_TEMPLATES.items()
     ]
 
