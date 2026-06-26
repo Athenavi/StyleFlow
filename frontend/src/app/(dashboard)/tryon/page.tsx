@@ -148,7 +148,7 @@ export default function TryonPage() {
     <DashboardLayout>
       <Title level={3}><PictureOutlined style={{ marginRight: 8 }} />虚拟试衣</Title>
 
-      <Alert message="上传人物照片和服装图片，AI 自动合成试穿效果。可使用示例图片快速体验。" type="info" showIcon
+      <Alert description="上传人物照片和服装图片，AI 自动合成试穿效果。可使用示例图片快速体验。" type="info" showIcon
         style={{ marginBottom: 16, borderRadius: 8 }} />
 
       <Row gutter={24}>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Card, Button, Typography, Space, Spin, Empty, App,
-  Tag, List, Tooltip, Popconfirm, Tabs, Alert, Table,
+  Tag, Tooltip, Popconfirm, Tabs, Alert, Table,
   Modal, Timeline, Descriptions, Row, Col
 } from 'antd';
 import {
@@ -121,7 +121,7 @@ export default function WorkflowPage() {
     <DashboardLayout>
       <Title level={3} style={{ marginBottom: 16 }}><ApartmentOutlined style={{ marginRight: 8 }} />工作流</Title>
 
-      <Alert message={<span><strong>使用说明：</strong>① 安装内置模板或新建 → ② 点击 ▶ 启动 → ③ 认领任务 → ④ 推进/驳回</span>}
+      <Alert description={<span><strong>使用说明：</strong>① 安装内置模板或新建 → ② 点击 ▶ 启动 → ③ 认领任务 → ④ 推进/驳回</span>}
         type="info" showIcon style={{ marginBottom: 16, borderRadius: 8 }} />
 
       <Tabs defaultActiveKey="defs" items={[
@@ -133,9 +133,9 @@ export default function WorkflowPage() {
                 <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/workflow/editor')}>新建模板</Button>
               </div>
               {defs.length === 0 ? <Empty description="暂无模板，可安装内置模板或新建"><Button type="primary" onClick={() => router.push('/workflow/editor')}>立即创建</Button></Empty>
-              : <List grid={{ gutter: 16, xs: 1, sm: 2, lg: 3 }} dataSource={defs}
-                  renderItem={(item: any) => (
-                    <List.Item>
+              : <Row gutter={[16, 16]}>
+                  {defs.map((item: any) => (
+                    <Col key={item.id} xs={24} sm={12} lg={8}>
                       <Card hoverable actions={defActions(item)} style={{ borderRadius: 8 }}>
                         <Card.Meta title={item.name}
                           description={<Space direction="vertical" size={4}>
@@ -143,8 +143,9 @@ export default function WorkflowPage() {
                             <Space><Tag>{item.nodes?.length || 0} 节点</Tag><Tag color="blue">初始:{item.initial}</Tag></Space>
                           </Space>} />
                       </Card>
-                    </List.Item>
-                  )} />}
+                    </Col>
+                  ))}
+                </Row>}
             </>
           ),
         },

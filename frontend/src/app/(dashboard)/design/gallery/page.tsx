@@ -49,11 +49,12 @@ export default function DesignGalleryPage() {
 
       if (tab === 'personal') {
         const res: any = await api.get('/designs', params);
-        setDesigns(res.data || res.results || res || []);
+        const list = res.items || res.data || res.results || [];
+        setDesigns(list);
         setPublicDesigns([]);
       } else {
         const res: any = await api.get('/designs', params);
-        setPublicDesigns(res.data || res.results || res || []);
+        const list = res.items || res.data || res.results || [];
         setDesigns([]);
       }
     } catch { message.error('加载失败'); }
