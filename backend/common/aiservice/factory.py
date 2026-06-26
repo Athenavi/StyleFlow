@@ -103,35 +103,50 @@ def _get_provider_config(provider_type: str, provider_name: str, model: str = No
 
 
 def get_user_llm_config(user) -> dict:
-    """获取用户的 LLM 配置"""
+    """获取用户的 LLM 配置（含解密后的 API Key）"""
     try:
         setting = user.ai_setting
         provider_name = setting.llm_provider
         model = setting.llm_model
+        user_api_key = setting.get_llm_api_key()
     except Exception:
         provider_name = None
         model = None
+        user_api_key = None
 
     config = _get_provider_config('llm', provider_name, model) if provider_name else None
     if not config:
         config = _get_provider_config('llm', 'default', model)
-    return config or {}
+    config = config or {}
+
+    # 如果用户设置了自定义 API Key，覆盖系统配置
+    if user_api_key:
+        config['api_key'] = user_api_key
+
+    return config
 
 
 def get_user_image_config(user) -> dict:
-    """获取用户的图像模型配置"""
+    """获取用户的图像模型配置（含解密后的 API Key）"""
     try:
         setting = user.ai_setting
         provider_name = setting.image_provider
         model = setting.image_model
+        user_api_key = setting.get_image_api_key()
     except Exception:
         provider_name = None
         model = None
+        user_api_key = None
 
     config = _get_provider_config('image', provider_name, model) if provider_name else None
     if not config:
         config = _get_provider_config('image', 'default', model)
-    return config or {}
+    config = config or {}
+
+    if user_api_key:
+        config['api_key'] = user_api_key
+
+    return config
 
 
 def get_llm_service_for_user(user) -> Optional[BaseLLMService]:

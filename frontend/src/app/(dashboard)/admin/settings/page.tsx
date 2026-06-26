@@ -3,11 +3,10 @@
 import { useState, useEffect } from 'react';
 import {
   Card, Typography, Tag, Button, Space, Spin, message,
-  Row, Col, Select, Divider, Descriptions
+  Row, Col, Select, Divider, Input
 } from 'antd';
 import {
-  SettingOutlined, CheckCircleOutlined, SwapOutlined,
-  RobotOutlined, PictureOutlined, SaveOutlined
+  SettingOutlined, RobotOutlined, PictureOutlined, SaveOutlined, KeyOutlined
 } from '@ant-design/icons';
 import DashboardLayout from '@/components/Layout/DashboardLayout';
 import api from '@/lib/api';
@@ -24,6 +23,10 @@ export default function AdminSettingsPage() {
   const [llmModel, setLlmModel] = useState('gpt-4o');
   const [imageProvider, setImageProvider] = useState('sd_webui');
   const [imageModel, setImageModel] = useState('sd-xl');
+  const [llmApiKey, setLlmApiKey] = useState('');
+  const [imageApiKey, setImageApiKey] = useState('');
+  const [llmKeyMasked, setLlmKeyMasked] = useState('');
+  const [imageKeyMasked, setImageKeyMasked] = useState('');
 
   const fetchData = async () => {
     setLoading(true);
@@ -39,6 +42,8 @@ export default function AdminSettingsPage() {
       setLlmModel(us.llm_model || 'gpt-4o');
       setImageProvider(us.image_provider || 'sd_webui');
       setImageModel(us.image_model || 'sd-xl');
+      setLlmKeyMasked(us.llm_api_key_masked || '');
+      setImageKeyMasked(us.image_api_key_masked || '');
     } catch { message.error('加载配置失败'); }
     finally { setLoading(false); }
   };
@@ -48,13 +53,19 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await api.patch('/admin/my-settings', {
+      const body: any = {
         llm_provider: llmProvider,
         llm_model: llmModel,
         image_provider: imageProvider,
         image_model: imageModel,
-      });
+      };
+      if (llmApiKey) body.llm_api_key = llmApiKey;
+      if (imageApiKey) body.image_api_key = imageApiKey;
+
+      await api.patch('/admin/my-settings', body);
       message.success('个人 AI 配置已保存');
+      setLlmApiKey('');
+      setImageApiKey('');
       fetchData();
     } catch { message.error('保存失败'); }
     finally { setSaving(false); }
@@ -107,6 +118,18 @@ export default function AdminSettingsPage() {
                   options={getLlmModels().map((m: string) => ({ value: m, label: m }))}
                 />
               </div>
+              <div>
+                <Text strong>
+                  <KeyOutlined style={{ marginRight: 4 }} />
+                  API Key {llmKeyMasked && <Tag style={{ fontSize: 11 }}>{llmKeyMasked}</Tag>}
+                </Text>
+                <Input.Password
+                  placeholder={llmKeyMasked ? '留空则沿用系统配置' : '输入你的 API Key（覆盖系统配置）'}
+                  value={llmApiKey}
+                  onChange={(e) => setLlmApiKey(e.target.value)}
+                  style={{ marginTop: 4 }}
+                />
+              </div>
               <Button
                 type="primary"
                 icon={<SaveOutlined />}
@@ -143,6 +166,18 @@ export default function AdminSettingsPage() {
                   onChange={setImageModel}
                   style={{ width: '100%', marginTop: 4 }}
                   options={getImageModels().map((m: string) => ({ value: m, label: m }))}
+                />
+              </div>
+              <div>
+                <Text strong>
+                  <KeyOutlined style={{ marginRight: 4 }} />
+                  API Key {imageKeyMasked && <Tag style={{ fontSize: 11 }}>{imageKeyMasked}</Tag>}
+                </Text>
+                <Input.Password
+                  placeholder={imageKeyMasked ? '留空则沿用系统配置' : '输入你的 API Key（覆盖系统配置）'}
+                  value={imageApiKey}
+                  onChange={(e) => setImageApiKey(e.target.value)}
+                  style={{ marginTop: 4 }}
                 />
               </div>
               <Button

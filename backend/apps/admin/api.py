@@ -18,6 +18,8 @@ class UserAISettingsOut(Schema):
     llm_model: str
     image_provider: str
     image_model: str
+    llm_api_key_masked: str = ''
+    image_api_key_masked: str = ''
 
 
 class UserAISettingsIn(Schema):
@@ -25,6 +27,8 @@ class UserAISettingsIn(Schema):
     llm_model: Optional[str] = None
     image_provider: Optional[str] = None
     image_model: Optional[str] = None
+    llm_api_key: Optional[str] = None     # 明文传入，加密存储
+    image_api_key: Optional[str] = None   # 明文传入，加密存储
 
 
 def _get_current_user(request):
@@ -83,24 +87,45 @@ def list_providers(request):
 
 @router.get('/my-settings', response=UserAISettingsOut)
 def get_my_ai_settings(request):
-    """获取当前用户的 AI 配置"""
+    """获取当前用户的 AI 配置（API Key 脱敏显示）"""
     user = _get_current_user(request)
     setting, _ = UserAISetting.objects.get_or_create(user=user)
-    return setting
+    return {
+        'llm_provider': setting.llm_provider,
+        'llm_model': setting.llm_model,
+        'image_provider': setting.image_provider,
+        'image_model': setting.image_model,
+        'llm_api_key_masked': setting.llm_api_key_masked,
+        'image_api_key_masked': setting.image_api_key_masked,
+    }
 
 
 @router.patch('/my-settings', response=UserAISettingsOut)
 def update_my_ai_settings(request, payload: UserAISettingsIn):
-    """更新当前用户的 AI 配置"""
+    """更新当前用户的 AI 配置（API Key 自动加密存储）"""
     user = _get_current_user(request)
     setting, _ = UserAISetting.objects.get_or_create(user=user)
 
     update_data = payload.dict(exclude_unset=True)
+
+    # API Key 用 setter 自动加密
+    if 'llm_api_key' in update_data:
+        setting.set_llm_api_key(update_data.pop('llm_api_key'))
+    if 'image_api_key' in update_data:
+        setting.set_image_api_key(update_data.pop('image_api_key'))
+
     for key, value in update_data.items():
         setattr(setting, key, value)
     setting.save()
 
-    return setting
+    return {
+        'llm_provider': setting.llm_provider,
+        'llm_model': setting.llm_model,
+        'image_provider': setting.image_provider,
+        'image_model': setting.image_model,
+        'llm_api_key_masked': setting.llm_api_key_masked,
+        'image_api_key_masked': setting.image_api_key_masked,
+    }
 
 
 @router.post('/providers/switch')
