@@ -128,7 +128,17 @@ def copy_def(request, def_id: int):
 
 BUILTIN_TEMPLATES = {
     '款式开发': {
-        'initial': 'planning', 'description': '标准款式开发流程：企划→设计→评审→工艺→核价→审批→发布',
+        'initial': 'planning',
+        'description': '标准款式开发流程：企划→设计→评审→工艺→核价→审批→发布',
+        'nodes': [
+            {'name': 'planning', 'label': '商品企划', 'handler_role': ['designer'], 'auto_proceed': True, 'next': ['designing'], 'reject_to': ''},
+            {'name': 'designing', 'label': '设计出款', 'handler_role': ['designer'], 'auto_proceed': False, 'next': ['review'], 'reject_to': 'planning'},
+            {'name': 'review', 'label': '设计评审', 'handler_role': ['admin'], 'auto_proceed': False, 'next': ['techpack'], 'reject_to': 'designing'},
+            {'name': 'techpack', 'label': '工艺单制作', 'handler_role': ['pattern_maker'], 'auto_proceed': True, 'next': ['costing'], 'reject_to': 'review'},
+            {'name': 'costing', 'label': '核工价', 'handler_role': ['accountant', 'admin'], 'auto_proceed': False, 'next': ['approval'], 'reject_to': 'techpack'},
+            {'name': 'approval', 'label': '最终审批', 'handler_role': ['admin'], 'auto_proceed': False, 'next': ['released'], 'reject_to': 'techpack'},
+            {'name': 'released', 'label': '已发布', 'handler_role': [], 'auto_proceed': False, 'next': []},
+        ],
     },
     '物料审批': {
         'initial': 'apply',
@@ -172,10 +182,14 @@ def install_builtin(request, template_name: str):
     if count >= MAX_DEFINITIONS:
         from ninja.errors import HttpError
         raise HttpError(400, f'最多 {MAX_DEFINITIONS} 条')
-    exists = WorkflowDefinition.objects.filter(user=user, name=name).exists()
+    exists = WorkflowDefinition.objects.filter(user=user, name=name).first()
     if exists:
-        from ninja.errors import HttpError
-        raise HttpError(400, '已安装该模板，请勿重复安装')
+        # 已安装则更新
+        exists.nodes = tpl.get('nodes', [])
+        exists.initial = tpl['initial']
+        exists.description = tpl['description']
+        exists.save()
+        return {'id': exists.id, 'name': exists.name, 'nodes': len(exists.nodes), 'updated': True}
     wd = WorkflowDefinition.objects.create(
         user=user, name=name, description=tpl['description'],
         initial=tpl['initial'], nodes=tpl.get('nodes', []),
