@@ -48,56 +48,79 @@ def _get_user(request):
 
 
 @router.get('', response=List[MediaOut])
-def list_media(request, category: str = None, search: str = None):
+def list_media(request, category: str = None, search: str = None, trash: bool = False):
     """我的媒体库列表"""
     user = _get_user(request)
-    qs = UserMedia.objects.filter(user=user, is_active=True)
+    qs = UserMedia.objects.filter(user=user, is_active=not trash)
     if category:
         qs = qs.filter(category=category)
     if search:
         from django.db import models
         qs = qs.filter(models.Q(title__icontains=search) | models.Q(tags__contains=search))
-    return qs[:100]
+    return qs[:200]
 
 
 @router.post('/upload', response=MediaUploadOut)
 def upload_media(request, title: str = Form(''), category: str = Form('other'),
                   file: UploadedFile = File(...)):
-    """上传媒体文件（multipart/form-data，仅支持 jpg/png/webp/gif，≤10MB）"""
     user = _get_user(request)
-
-    # 校验扩展名
     ext = '.' + file.name.split('.')[-1].lower() if '.' in file.name else ''
     if ext not in ALLOWED_EXTS:
         from ninja.errors import HttpError
         raise HttpError(400, f'不支持 {ext}（仅支持 jpg/png/webp/gif）')
-
-    # 校验大小
     content = file.read()
     if len(content) > MAX_SIZE:
-        from ninja.errors import HttpError
         raise HttpError(400, '文件超过 10MB 限制')
-
-    # 保存文件到用户目录
     file_url = save_file(user, content, file.name, subdir='media/')
-
-    # 写入数据库
     file_type = ext.replace('.', '')
     file_type = 'jpg' if file_type == 'jpeg' else file_type
     media = UserMedia.objects.create(
-        user=user,
-        title=title or file.name.rsplit('.', 1)[0],
-        file_url=file_url,
-        file_type=file_type,
-        file_size=len(content),
+        user=user, title=title or file.name.rsplit('.', 1)[0],
+        file_url=file_url, file_type=file_type, file_size=len(content),
         category=category if category in dict(UserMedia.CATEGORY_CHOICES) else 'other',
     )
     return {'id': media.id, 'file_url': media.file_url, 'title': media.title}
 
 
+@router.patch('/batch-category')
+def batch_category(request, ids: List[int], category: str):
+    """批量修改分类"""
+    user = _get_user(request)
+    if category not in dict(UserMedia.CATEGORY_CHOICES):
+        from ninja.errors import HttpError
+        raise HttpError(400, '无效分类')
+    updated = UserMedia.objects.filter(id__in=ids, user=user).update(category=category)
+    return {'updated': updated}
+
+
+@router.post('/batch-delete')
+def batch_delete(request, ids: List[int]):
+    """批量删除（移入回收站）"""
+    user = _get_user(request)
+    updated = UserMedia.objects.filter(id__in=ids, user=user).update(is_active=False)
+    return {'moved_to_trash': updated}
+
+
+@router.post('/restore/{media_id}')
+def restore_media(request, media_id: int):
+    """从回收站恢复"""
+    user = _get_user(request)
+    media = UserMedia.objects.get(id=media_id, user=user, is_active=False)
+    media.is_active = True
+    media.save()
+    return {'restored': True}
+
+
+@router.post('/empty-trash')
+def empty_trash(request):
+    """清空回收站（永久删除）"""
+    user = _get_user(request)
+    deleted, _ = UserMedia.objects.filter(user=user, is_active=False).delete()
+    return {'permanently_deleted': deleted}
+
+
 @router.delete('/{media_id}', response={204: None})
 def delete_media(request, media_id: int):
-    """删除媒体素材"""
     user = _get_user(request)
     media = UserMedia.objects.get(id=media_id, user=user)
     media.is_active = False

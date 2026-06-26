@@ -34,6 +34,16 @@ def run_tryon_task(self, user_id: int, person_image_url: str,
             }
             task_record.save()
 
+            # 自动保存到媒体库
+            from apps.media.models import UserMedia
+            UserMedia.objects.create(
+                user_id=user_id,
+                title=f'试衣 {title or task_record.id}',
+                file_url=result_url,
+                file_type='png',
+                category='garment',
+            )
+
         logger.info(f"TryOn completed in {int((time.time()-start)*1000)}ms")
         return {'result_image_url': result_url, 'status': 'completed'}
 
