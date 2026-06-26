@@ -132,11 +132,31 @@ AI_SERVICES = {
             'api_key': os.getenv('OPENAI_API_KEY', ''),
             'model': 'gpt-4o',
         },
+        'openai': {
+            'provider': 'openai',
+            'api_key': os.getenv('OPENAI_API_KEY', ''),
+            'model': 'gpt-4o',
+        },
+        'claude': {
+            'provider': 'claude',
+            'api_key': os.getenv('CLAUDE_API_KEY', ''),
+            'model': 'claude-sonnet-4-20250514',
+        },
+        'tongyi': {
+            'provider': 'tongyi',
+            'api_key': os.getenv('TONGYI_API_KEY', ''),
+            'model': 'qwen-max',
+        },
     },
     'image': {
         'default': {
             'provider': 'sd_webui',
             'base_url': os.getenv('SD_WEBUI_URL', 'http://localhost:7860'),
+        },
+        'tongyi': {
+            'provider': 'tongyi_image',
+            'api_key': os.getenv('TONGYI_API_KEY', ''),
+            'model': 'wanx-v1',
         },
     },
 }

@@ -15,6 +15,7 @@ import {
   MenuUnfoldOutlined,
   UserOutlined,
   LogoutOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/auth';
@@ -38,6 +39,7 @@ const menuItems = [
   { key: '/costing', icon: <CalculatorOutlined />, label: '核工价' },
   { key: '/wages', icon: <DollarOutlined />, label: '计件工资' },
   { key: '/erp', icon: <DatabaseOutlined />, label: 'ERP 数据' },
+  { key: '/admin/settings', icon: <SettingOutlined />, label: 'AI 配置' },
 ];
 
 interface DashboardLayoutProps {

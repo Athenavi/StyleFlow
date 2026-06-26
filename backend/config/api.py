@@ -10,6 +10,7 @@ from apps.workflow.api import router as workflow_router
 from apps.costing.api import router as costing_router
 from apps.wages.api import router as wages_router
 from apps.erp.api import router as erp_router
+from apps.admin.api import router as admin_router
 
 api = NinjaAPI(
     title='StyleFlow API',
@@ -29,6 +30,7 @@ api.add_router('/workflows', workflow_router, tags=['工作流'])
 api.add_router('/costing', costing_router, tags=['核工价'])
 api.add_router('/wages', wages_router, tags=['计件工资'])
 api.add_router('/erp', erp_router, tags=['ERP对接'])
+api.add_router('/admin', admin_router, tags=['系统配置'])
 
 
 @api.exception_handler(Exception)
