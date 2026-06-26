@@ -1,0 +1,302 @@
+# StyleFlow 项目规划与架构文档
+
+**版本**：v1.0  
+**日期**：2026-06-26
+
+---
+
+## 1. 项目概述
+
+### 1.1 背景
+服装行业面临设计效率低、ERP 数据孤岛、真人模特成本高、工艺工价核算繁琐等问题。大模型与图像生成技术趋于成熟，可将其深度集成到业务流程中，实现从商品企划、设计、虚拟试衣到核工价、计件工资的全链路自动化。
+
+### 1.2 目标
+构建一个以 AI 为中枢的服装设计-生产协同平台（StyleFlow），提供：
+- **AI 设计工坊**：文生图、款式延伸、虚拟穿搭合成。
+- **业务流程自动化**：打通服装 ERP，自动生成工艺单、核算工价、计算计件工资。
+- **轻量级落地**：作为微信小程序或 Web 应用，由设计师、版师、管理人员使用。
+- **单人长期维护**：架构简洁、文档清晰，支持快速迭代。
+
+---
+
+## 2. 总体架构
+
+### 2.1 分层架构图
+```
+┌──────────────────────────────────────────────────┐
+│                    前端层 (Next.js)                │
+│  - 管理后台 (Web)   - 设计师操作台 (Web/小程序)   │
+└───────────────────┬──────────────────────────────┘
+                    │ RESTful API (JSON) / SSE
+┌───────────────────▼──────────────────────────────┐
+│                   API 网关层 (Django Ninja)        │
+│  - 认证授权  - 路由分发  - 限流  - 日志           │
+└───────────────────┬──────────────────────────────┘
+                    │
+┌───────────────────▼──────────────────────────────┐
+│                    业务服务层                      │
+│ ┌────────────┬────────────┬──────────┬─────────┐ │
+│ │ AI 设计服务│ 虚拟试衣服务│ 工作流引擎│ ERP 对接│ │
+│ └────────────┴────────────┴──────────┴─────────┘ │
+└───────────────────┬──────────────────────────────┘
+                    │
+┌───────────────────▼──────────────────────────────┐
+│                    数据与基础设施                   │
+│  - PostgreSQL  - Redis  - Celery  - MinIO/OSS     │
+│  - 外部大模型 API (OpenAI、Stability AI 等)       │
+│  - 自部署模型 (Stable Diffusion, OOTDiffusion)    │
+│  - ERP 系统 (数据库/API)                          │
+└──────────────────────────────────────────────────┘
+```
+
+### 2.2 技术选型
+
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| **后端框架** | Django 4.2 + Django Ninja | 快速开发 RESTful API，自动文档，集成 ORM、Admin |
+| **异步任务** | Celery + Redis | 耗时 AI 任务（图片生成、虚拟试衣）异步处理 |
+| **数据库** | PostgreSQL 15 | 存储用户、设计稿、流程数据 |
+| **缓存/队列** | Redis 7 | 缓存、消息队列、Session |
+| **文件存储** | MinIO（本地）或阿里云 OSS | 存储生成图片、款式图 |
+| **前端** | Next.js 14 (App Router) | SSR/SSG 兼顾，后端接口聚合，Ant Design |
+| **小程序** | 微信原生 / Taro | 复用 Next.js API，提供移动端操作入口 |
+| **AI 模型** | OpenAI API / Claude / 通义千问 | 文本理解、Function Calling |
+| **图像生成** | Stable Diffusion WebUI API / 通义万相 | 文生图、图生图、ControlNet |
+| **虚拟试衣** | IDM-VTON / OOTDiffusion (本地部署) | 提供 API 供后端调用 |
+| **工作流** | Celery Canvas (chain/group) + 自定义状态机 | 轻量级流程编排，避免引入重型引擎 |
+| **部署** | Docker + Docker Compose | 一键部署，环境隔离 |
+
+---
+
+## 3. 功能模块与接口规划
+
+### 3.1 用户与权限管理
+- 角色：管理员、设计师、版师、财务、ERP 同步账号。
+- 使用 Django 自带的 auth + 自定义权限组。
+- API 模块：`/api/auth`（登录、注册、刷新 token）。
+
+### 3.2 AI 设计工坊
+**功能：**
+- **文生图**：输入提示词，选择风格（模特、平铺、灵感图），调用 Stable Diffusion 或云端 API。
+- **图生图/款式延展**：上传线稿或参考图，使用 ControlNet 做风格迁移或系列延展。
+- **设计稿管理**：个人作品库、版本管理、分享、审批。
+
+**API 端点：**
+```
+POST   /api/design/generate     # 提交生成任务（返回 task_id）
+GET    /api/design/result/{id}  # 查询任务结果
+GET    /api/design/gallery       # 作品列表
+PATCH  /api/design/{id}         # 编辑信息（评分、标签、关联 BOM）
+```
+
+### 3.3 虚拟穿搭合成
+**功能：**
+- 上传人物照片（或使用默认模特），选择上衣、下装、连衣裙等单品。
+- 通过虚拟试衣模型合成预览图，支持拖拽换装。
+- 单品来源于设计库或 ERP 物料。
+
+**API 端点：**
+```
+POST   /api/tryon/synthesize     # 提交合成任务
+GET    /api/tryon/result/{id}
+```
+
+### 3.4 商品企划与设计流程自动化
+**功能：**
+- 从 ERP 获取波段、品类数据，结合 AI 生成企划案（灵感板、款式组合）。
+- 设计师完成设计后，系统自动提取工艺属性（领型、袖型、面料等），生成工艺单初稿。
+- 与 ERP 交互：读取历史款号、尺码表，回写新款式到 ERP 开发模块。
+
+**API 端点：**
+```
+GET    /api/erp/plans              # 获取企划数据
+POST   /api/planning/generate      # AI 生成企划稿
+POST   /api/techpack/create        # 生成工艺单（调用 LLM 结构化输出）
+PUT    /api/erp/style              # 回写 ERP
+```
+
+### 3.5 核工价与计件工资
+**功能：**
+- 从 ERP 读取工序、工时、工价标准。
+- 设计确认后，自动匹配工序流程，计算标准工价。
+- 对接计件工资模块：接收生产报工数据，汇总个人/小组计件工资。
+
+**API 端点：**
+```
+GET    /api/costing/calculate/{style_id}
+POST   /api/costing/approve
+GET    /api/wages/report?date_range=...
+```
+
+### 3.6 工作流管理中心
+**功能：**
+- 配置化流程：企划→设计→工艺→核价→审批→发布，状态可追溯。
+- 基于 Celery Canvas 和数据库状态字段实现，无需独立引擎。
+- 提供操作界面查看流程节点，手动触发下一步。
+
+**API 端点：**
+```
+GET    /api/workflow/instances
+POST   /api/workflow/{id}/proceed
+GET    /api/workflow/history
+```
+
+---
+
+## 4. 数据模型设计（核心实体）
+
+只列出关键模型字段，可根据业务需求扩展。
+
+```python
+# 用户扩展
+class Profile(models.Model):
+    user = OneToOneField(User)
+    role = CharField(choices=['designer','pattern_maker','accountant','admin'])
+    erp_user_id = CharField(...)  # ERP 关联
+
+# 设计稿
+class Design(models.Model):
+    creator = ForeignKey(User)
+    image_url = URLField()
+    prompt = TextField()
+    category = CharField(...)  # 款式、面料、灵感图
+    status = CharField(default='draft')
+    created_at = DateTimeField()
+
+# 虚拟试衣记录
+class TryOnTask(models.Model):
+    user = ForeignKey(User)
+    person_image = URLField()
+    garment_image = URLField()
+    result_image = URLField(null=True)
+    status = CharField()  # pending, completed, failed
+
+# 工作流实例
+class WorkflowInstance(models.Model):
+    workflow_type = CharField()  # 'style_development', 'costing'
+    object_id = IntegerField()
+    current_node = CharField()
+    status = CharField(default='running')
+    data = JSONField()  # 快照
+
+# ERP 数据镜像（临时表或连接器）
+class ErpStyle(models.Model):
+    style_code = CharField(unique=True)
+    description = TextField()
+    bom = JSONField()
+    # ... 其他必要字段，定期同步
+```
+
+---
+
+## 5. AI 服务集成方案
+
+### 5.1 大语言模型
+- **统一接口**：`AIService` 类封装 OpenAI、Claude、通义千问等，通过配置切换。
+- **使用场景**：
+  - 从自然语言提取设计参数（领型、袖长、面料）→ Function Calling 返回 JSON。
+  - 根据企划主题生成设计提示词。
+  - 生成工艺单描述文本。
+
+### 5.2 图像生成
+- **本地 Stable Diffusion**：部署在 GPU 服务器，对外暴露 API（通过 A1111 WebUI 或 ComfyUI）。
+- **云端备选**：通义万相 API，成本可控时使用。
+- **参数模板**：预置适合服装设计的模板（负面词、步数、长宽比）。
+
+### 5.3 虚拟试衣模型
+- **选型**：**IDM-VTON**（效果好，环境易配）或 **OOTDiffusion**。
+- **部署**：单独容器，提供 `/generate` API，接收人物图+服装图，返回合成图。
+- **性能优化**：使用批量推理、图片压缩，缓解单张耗时问题。
+
+### 5.4 任务编排
+- 所有 AI 调用通过 Celery 异步执行，返回 task_id。
+- 前端通过轮询或 WebSocket/SSE 获取进度。
+- 支持失败重试、超时设置，记录消耗 Token 与费用。
+
+---
+
+## 6. 前端架构与页面规划
+
+### 6.1 Next.js 项目结构
+```
+frontend/
+├── app/
+│   ├── (auth)/          # 登录/注册
+│   ├── dashboard/       # 工作台：概览、待办
+│   ├── design/          # AI 设计中心
+│   │   ├── generate/    # 文生图/图生图页面
+│   │   └── gallery/     # 我的作品
+│   ├── tryon/           # 虚拟试衣间
+│   ├── workflow/        # 流程查看与操作
+│   ├── erp/             # ERP 数据查询
+│   └── admin/           # 系统管理
+├── components/          # 通用组件（图片选择器、画布）
+└── lib/                 # API 封装、工具函数
+```
+
+### 6.2 核心交互
+- 生成任务：点击生成 → 显示 loading → 轮询结果 → 展示图片列表。
+- 虚拟试衣：左侧模特区，右侧单品库，拖拽即可预览（合成）。
+- 工作流看板：Kanban 或列表视图，可拖拽推进（需权限）。
+
+### 6.3 小程序版本
+- 采用 Taro 开发，代码尽量与 Next.js 共享逻辑（Hooks、API 调用）。
+- 简化操作：拍照上传面料、语音输入设计需求、审批快捷操作。
+
+---
+
+## 7. ERP 对接策略
+
+1. **调研现有 ERP**：确定其提供的接口形式（数据库直连、REST、SOAP、中间表）。若无 API 则通过数据库视图或同步程序提取数据。
+2. **数据同步**：使用 Celery Beat 定时同步基础数据（款式编码、BOM、工序、工价），存入本地中间表，避免频繁直连影响 ERP 性能。
+3. **回写机制**：提供可靠的回写接口（带重试），状态同步，失败时报警并记录日志。
+4. **安全**：只读取必要数据，账号最小化权限，敏感字段加密传输。
+
+---
+
+## 8. 开发计划与里程碑
+
+**总工期**：约 12 周（单人全职），可根据兼职状态延长。
+
+| 阶段 | 任务 | 产出 | 时间 |
+|------|------|------|------|
+| **准备** | 环境搭建、Django+Ninja 脚手架、Next.js 初始化、CI/CD | 项目骨架、Docker 配置 | 第 1 周 |
+| **认证与基础** | 用户系统、角色权限、前端登录页和布局 | 可登录的壳应用 | 第 2 周 |
+| **AI 设计核心** | 封装 LLM 和 SD API、Celery 任务、前端生成页 | 能文生图 | 第 3-4 周 |
+| **虚拟试衣** | 部署 VTON 模型、API 封装、前端试衣间 | 可虚拟换装 | 第 5-6 周 |
+| **ERP 对接与工作流** | ERP 连接器、企划/设计自动化、流程引擎 | 数据流通、状态流转 | 第 7-8 周 |
+| **核工价与工资** | 工价计算逻辑、报表界面、与 ERP 互写 | 成本与工资模块 | 第 9 周 |
+| **小程序适配** | 核心页面移植（设计生成、审批） | 微信小程序可用 | 第 10 周 |
+| **测试与优化** | 集成测试、性能优化、文档、操作手册 | 完整交付包 | 第 11-12 周 |
+
+---
+
+## 9. 部署与运维
+
+- **容器化**：每个服务（Django、Next.js、Celery Worker、Redis、Postgres、MinIO、SD 服务、VTON 服务）一个容器，Docker Compose 编排。
+- **环境管理**：开发、测试、生产环境通过 `.env` 隔离。
+- **反向代理**：Nginx 处理 SSL、静态资源，API 转发到 Django（内部端口 8000）。
+- **监控与日志**：
+  - Django 日志输出 JSON 格式，集中到 ELK 或简易文件采集。
+  - 使用 Sentry 捕获异常。
+  - 前端 Google Analytics 或自部署 Umami 统计访问。
+- **备份**：数据库每日备份至 OSS，重要文件版本化管理。
+
+---
+
+## 10. 风险与应对
+
+| 风险 | 应对 |
+|------|------|
+| AI 生成效果不稳定 | 提供默认预设，允许用户调整参数或后处理 |
+| ERP 对接困难（无标准 API） | 通过数据库中间表或导入导出 CSV 过渡 |
+| 虚拟试衣模型部署复杂 | 优先使用云端 API（若成本允许），本地模型作为备选 |
+| 需求频繁变更 | 架构模块化，核心流程可配置，留出扩展点 |
+| 单人维护压力 | 编写详细文档、自动化脚本，代码风格统一 |
+
+---
+
+## 11. 附录：命名与 Slogan
+
+- **项目名**：StyleFlow  
+- **Slogan**：让灵感自然涌动，让流程自如流转。  
