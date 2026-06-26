@@ -99,6 +99,99 @@ def delete_def(request, def_id: int):
     return 204, None
 
 
+@router.delete('/definitions/{def_id}/hard', response={204: None})
+def hard_delete_def(request, def_id: int):
+    """永久删除工作流定义"""
+    wd = WorkflowDefinition.objects.get(id=def_id)
+    wd.delete()
+    return 204, None
+
+
+@router.post('/definitions/{def_id}/copy', response=DefOut)
+def copy_def(request, def_id: int):
+    """复制工作流定义"""
+    user = _get_user(request)
+    count = WorkflowDefinition.objects.filter(user=user).count()
+    if count >= MAX_DEFINITIONS:
+        from ninja.errors import HttpError
+        raise HttpError(400, f'最多 {MAX_DEFINITIONS} 条，请先删除后再复制')
+    original = WorkflowDefinition.objects.get(id=def_id)
+    wd = WorkflowDefinition.objects.create(
+        user=user, name=f'{original.name} (副本)',
+        description=original.description,
+        initial=original.initial, nodes=original.nodes,
+    )
+    return wd
+
+
+# --- 内置模板 ---
+
+BUILTIN_TEMPLATES = {
+    '款式开发': {
+        'initial': 'planning', 'description': '标准款式开发流程：企划→设计→评审→工艺→核价→审批→发布',
+    },
+    '物料审批': {
+        'initial': 'apply',
+        'description': '物料采购审批流程：申请→部门审核→财务核价→总经理审批→采购执行',
+        'nodes': [
+            {'name': 'apply', 'label': '采购申请', 'handler_role': ['designer'], 'auto_proceed': False, 'next': ['dept_review'], 'reject_to': ''},
+            {'name': 'dept_review', 'label': '部门审核', 'handler_role': ['admin'], 'auto_proceed': False, 'next': ['finance'], 'reject_to': 'apply'},
+            {'name': 'finance', 'label': '财务核价', 'handler_role': ['accountant'], 'auto_proceed': False, 'next': ['gm_approval'], 'reject_to': 'dept_review'},
+            {'name': 'gm_approval', 'label': '总经理审批', 'handler_role': ['admin'], 'auto_proceed': False, 'next': ['purchase'], 'reject_to': 'finance'},
+            {'name': 'purchase', 'label': '采购执行', 'handler_role': ['admin'], 'auto_proceed': False, 'next': ['done'], 'reject_to': ''},
+            {'name': 'done', 'label': '已完成', 'handler_role': [], 'auto_proceed': False, 'next': []},
+        ],
+    },
+    'AI辅助设计': {
+        'initial': 'requirement',
+        'description': 'AI辅助设计流程：需求→AI生成→设计师修改→AI质检→评审→发布（AI参与节点自动执行）',
+        'nodes': [
+            {'name': 'requirement', 'label': '需求录入', 'handler_role': ['designer'], 'auto_proceed': False, 'next': ['ai_generate'], 'reject_to': ''},
+            {'name': 'ai_generate', 'label': 'AI生成初稿', 'handler_role': ['designer'], 'auto_proceed': True, 'next': ['designer_review'], 'reject_to': ''},
+            {'name': 'designer_review', 'label': '设计师修改', 'handler_role': ['designer'], 'auto_proceed': False, 'next': ['ai_quality'], 'reject_to': 'ai_generate'},
+            {'name': 'ai_quality', 'label': 'AI质量检测', 'handler_role': ['designer'], 'auto_proceed': True, 'next': ['approval'], 'reject_to': ''},
+            {'name': 'approval', 'label': '最终审批', 'handler_role': ['admin'], 'auto_proceed': False, 'next': ['released'], 'reject_to': 'designer_review'},
+            {'name': 'released', 'label': '已发布', 'handler_role': [], 'auto_proceed': False, 'next': []},
+        ],
+    },
+}
+
+
+@router.post('/builtin/{template_name}')
+def install_builtin(request, template_name: str):
+    """安装内置工作流模板"""
+    user = _get_user(request)
+    if template_name not in BUILTIN_TEMPLATES:
+        from ninja.errors import HttpError
+        raise HttpError(404, f'模板 {template_name} 不存在')
+    tpl = BUILTIN_TEMPLATES[template_name]
+    count = WorkflowDefinition.objects.filter(user=user).count()
+    if count >= MAX_DEFINITIONS:
+        from ninja.errors import HttpError
+        raise HttpError(400, f'最多 {MAX_DEFINITIONS} 条')
+    exists = WorkflowDefinition.objects.filter(user=user, name=template_name).exists()
+    if exists:
+        from ninja.errors import HttpError
+        raise HttpError(400, '已安装该模板')
+    wd = WorkflowDefinition.objects.create(
+        user=user, name=template_name, description=tpl['description'],
+        initial=tpl['initial'], nodes=tpl.get('nodes', []),
+    )
+    return wd
+
+
+@router.get('/builtin', response=List[DefOut])
+def list_builtin(request):
+    """列出所有内置模板"""
+    return [
+        {'id': 0, 'name': k, 'description': v['description'],
+         'initial': v['initial'],
+         'nodes': v.get('nodes', []),
+         'created_at': ''}
+        for k, v in BUILTIN_TEMPLATES.items()
+    ]
+
+
 # --- 工作流实例 ---
 
 class InstanceCreateIn(Schema):
