@@ -3,7 +3,8 @@ from celery import shared_task
 from django.conf import settings
 
 from .models import Design
-from common.aiservice.factory import get_image_service, get_prompt_template
+from common.aiservice.factory import get_image_service, get_image_service_for_user, get_prompt_template
+from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -26,10 +27,9 @@ def generate_design_task(self, user_id: int, prompt: str,
         full_prompt = tmpl['prompt_prefix'].format(prompt=prompt)
         neg_prompt = negative_prompt or tmpl['negative_prompt']
 
-        # 调用图像生成服务
-        service = get_image_service('default')
-        if service is None:
-            raise RuntimeError('图像生成服务未配置')
+        # 使用用户配置的图像生成服务
+        user = User.objects.get(id=user_id)
+        service = get_image_service_for_user(user) or get_image_service('default')
 
         result = service.text2img(
             prompt=full_prompt,

@@ -52,91 +52,148 @@ PROVIDER_INFO = {
     'tongyi_image': {'label': '通义万相', 'models': ['wanx-v1'], 'type': 'image'},
 }
 
-# Active provider (cached in Redis, falls back to settings)
-ACTIVE_PROVIDER_CACHE_KEY = 'styleflow:active_llm_provider'
+
+def _build_service(config: dict) -> Optional[object]:
+    """根据 provider 配置构建服务实例"""
+    provider = config['provider']
+    if provider == 'openai':
+        from .providers import OpenAIService
+        return OpenAIService(
+            api_key=config['api_key'],
+            base_url=config.get('base_url'),
+            model=config.get('model', 'gpt-4o'),
+        )
+    elif provider == 'claude':
+        from .llm.claude import ClaudeService
+        return ClaudeService(
+            api_key=config['api_key'],
+            model=config.get('model', 'claude-sonnet-4-20250514'),
+        )
+    elif provider == 'tongyi':
+        from .llm.tongyi import TongyiService
+        return TongyiService(
+            api_key=config['api_key'],
+            model=config.get('model', 'qwen-max'),
+        )
+    elif provider == 'sd_webui':
+        from .providers import SDWebUIService
+        return SDWebUIService(base_url=config['base_url'])
+    elif provider == 'tongyi_image':
+        from .image.tongyi import TongyiImageService
+        return TongyiImageService(
+            api_key=config['api_key'],
+            model=config.get('model', 'wanx-v1'),
+        )
+    return None
 
 
-def get_active_llm_config() -> dict:
-    """获取当前活跃的 LLM 配置"""
-    active_name = cache.get(ACTIVE_PROVIDER_CACHE_KEY)
-    if not active_name:
-        # 默认使用 settings 中的 default
-        for name, config in settings.AI_SERVICES.get('llm', {}).items():
-            return {**config, 'name': name}
-    config = settings.AI_SERVICES.get('llm', {}).get(active_name)
+def _get_provider_config(provider_type: str, provider_name: str, model: str = None) -> Optional[dict]:
+    """获取 provider 的系统配置，合并用户选择的模型"""
+    services = settings.AI_SERVICES.get(provider_type, {})
+    config = services.get(provider_name)
     if not config:
-        # fallback to first available
-        for name, cfg in settings.AI_SERVICES.get('llm', {}).items():
-            return {**cfg, 'name': name}
-    return {**config, 'name': active_name}
+        # 回退到 default
+        config = services.get('default')
+    if not config:
+        return None
+    config = {**config}
+    if model:
+        config['model'] = model
+    return config
+
+
+def get_user_llm_config(user) -> dict:
+    """获取用户的 LLM 配置"""
+    try:
+        setting = user.ai_setting
+        provider_name = setting.llm_provider
+        model = setting.llm_model
+    except Exception:
+        provider_name = None
+        model = None
+
+    config = _get_provider_config('llm', provider_name, model) if provider_name else None
+    if not config:
+        config = _get_provider_config('llm', 'default', model)
+    return config or {}
+
+
+def get_user_image_config(user) -> dict:
+    """获取用户的图像模型配置"""
+    try:
+        setting = user.ai_setting
+        provider_name = setting.image_provider
+        model = setting.image_model
+    except Exception:
+        provider_name = None
+        model = None
+
+    config = _get_provider_config('image', provider_name, model) if provider_name else None
+    if not config:
+        config = _get_provider_config('image', 'default', model)
+    return config or {}
+
+
+def get_llm_service_for_user(user) -> Optional[BaseLLMService]:
+    """获取用户配置的 LLM 服务"""
+    config = get_user_llm_config(user)
+    if not config:
+        return None
+    key = f"user_llm_{user.id}_{config.get('provider')}_{config.get('model')}"
+    if key not in _llm_instances:
+        _llm_instances[key] = _build_service(config)
+    return _llm_instances.get(key)
+
+
+def get_image_service_for_user(user) -> Optional[BaseImageService]:
+    """获取用户配置的图像生成服务"""
+    config = get_user_image_config(user)
+    if not config:
+        return None
+    key = f"user_img_{user.id}_{config.get('provider')}_{config.get('model')}"
+    if key not in _image_instances:
+        _image_instances[key] = _build_service(config)
+    return _image_instances.get(key)
+
+
+# ---- 全局（管理员）级别的兼容函数 ----
+def get_active_llm_config() -> dict:
+    active_name = cache.get('styleflow:active_llm_provider')
+    services = settings.AI_SERVICES.get('llm', {})
+    if active_name and active_name in services:
+        return {**services[active_name], 'name': active_name}
+    # fallback
+    for name, cfg in services.items():
+        return {**cfg, 'name': name}
+    return {}
 
 
 def set_active_llm_provider(name: str) -> bool:
-    """切换活跃的 LLM provider"""
-    config = settings.AI_SERVICES.get('llm', {}).get(name)
-    if not config:
+    if name not in settings.AI_SERVICES.get('llm', {}):
         return False
-    cache.set(ACTIVE_PROVIDER_CACHE_KEY, name, timeout=None)
-    # 清除缓存的实例，下次调用时重新创建
-    _llm_instances.pop(name, None)
-    _llm_instances.pop('_active', None)
+    cache.set('styleflow:active_llm_provider', name, timeout=None)
     return True
 
 
 def get_llm_service(name: str = None) -> Optional[BaseLLMService]:
-    """获取 LLM 服务实例"""
     if name is None:
         config = get_active_llm_config()
         name = config.get('name', 'default')
     else:
         config = settings.AI_SERVICES.get('llm', {}).get(name)
-
     if not config:
         return None
-
-    instance_key = name
+    instance_key = f"global_{name}"
     if instance_key not in _llm_instances:
-        provider = config['provider']
-
-        if provider == 'openai':
-            from .providers import OpenAIService
-            _llm_instances[instance_key] = OpenAIService(
-                api_key=config['api_key'],
-                base_url=config.get('base_url'),
-                model=config.get('model', 'gpt-4o'),
-            )
-        elif provider == 'claude':
-            from .llm.claude import ClaudeService
-            _llm_instances[instance_key] = ClaudeService(
-                api_key=config['api_key'],
-                model=config.get('model', 'claude-sonnet-4-20250514'),
-            )
-        elif provider == 'tongyi':
-            from .llm.tongyi import TongyiService
-            _llm_instances[instance_key] = TongyiService(
-                api_key=config['api_key'],
-                model=config.get('model', 'qwen-max'),
-            )
-
+        _llm_instances[instance_key] = _build_service(config)
     return _llm_instances.get(instance_key)
 
 
 def get_image_service(name: str = "default") -> Optional[BaseImageService]:
-    """获取图像服务实例"""
     if name not in _image_instances:
         config = settings.AI_SERVICES.get('image', {}).get(name)
-        if not config:
-            return None
-
-        if config['provider'] == 'sd_webui':
-            from .providers import SDWebUIService
-            _image_instances[name] = SDWebUIService(base_url=config['base_url'])
-        elif config['provider'] == 'tongyi_image':
-            from .image.tongyi import TongyiImageService
-            _image_instances[name] = TongyiImageService(
-                api_key=config['api_key'],
-                model=config.get('model', 'wanx-v1'),
-            )
+        if config:
+            _image_instances[name] = _build_service(config)
     return _image_instances.get(name)
 
 
