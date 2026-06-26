@@ -20,7 +20,11 @@ class MediaOut(Schema):
     height: int = 0
     category: str
     tags: List[str] = []
-    created_at: str
+    created_at: str = ''
+
+    @staticmethod
+    def resolve_created_at(obj):
+        return obj.created_at.isoformat() if obj.created_at else ''
 
 
 class MediaUploadOut(Schema):
