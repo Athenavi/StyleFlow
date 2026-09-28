@@ -1,5 +1,7 @@
 // 简单的 fetch 封装（替代 axios，避免路径别名问题）
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// 默认走同源相对路径 /api/v1，由 Next.js 反向代理到后端；
+// 这样局域网 IP / 域名访问时不会指向访客自己的 localhost。
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '');
 
 async function request(path: string, options: RequestInit = {}): Promise<any> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;

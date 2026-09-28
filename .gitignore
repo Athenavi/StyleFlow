@@ -216,3 +216,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---- StyleFlow 一键运行（start.py）----
+# 运行期可变数据：SQLite 数据库、上传/生成的图片、日志、构建标记
+/data/
+/logs/
+.env.bak.*
+backend/.venv/

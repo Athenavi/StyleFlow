@@ -20,6 +20,14 @@ class TechPackOut(Schema):
     created_at: str
     updated_at: str
 
+    @staticmethod
+    def resolve_created_at(obj):
+        return obj.created_at.isoformat() if obj.created_at else ''
+
+    @staticmethod
+    def resolve_updated_at(obj):
+        return obj.updated_at.isoformat() if obj.updated_at else ''
+
 
 class TechPackCreateIn(Schema):
     title: str
@@ -41,7 +49,12 @@ def list_techpacks(request, status: str = None):
 
 @router.get('/{tp_id}', response=TechPackOut)
 def get_techpack(request, tp_id: int):
-    return TechPack.objects.get(id=tp_id)
+    from ninja.errors import HttpError
+
+    tp = TechPack.objects.filter(id=tp_id).first()
+    if not tp:
+        raise HttpError(404, '工艺单不存在')
+    return tp
 
 
 @router.post('', response=TechPackOut)

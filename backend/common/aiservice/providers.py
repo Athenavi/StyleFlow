@@ -132,31 +132,17 @@ class SDWebUIService(BaseImageService):
                 "worst quality, low quality, jpeg artifacts, signature, watermark, blurry")
 
     def _save_to_storage(self, base64_image: str) -> str:
-        """保存 base64 图片到 MinIO，返回 URL"""
-        import uuid, base64, io
-        from django.conf import settings
-        import boto3
+        """保存 base64 图片到统一存储（local 磁盘 / S3），返回可访问 URL"""
+        import base64
+        from common.storage import save_bytes
 
         image_data = base64.b64decode(base64_image.split(',', 1)[-1])
-        filename = f"designs/{uuid.uuid4().hex}.png"
-
-        s3 = boto3.client(
-            's3',
-            endpoint_url=settings.AWS_S3_ENDPOINT_URL,
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-        )
-        s3.upload_fileobj(
-            io.BytesIO(image_data),
-            settings.AWS_STORAGE_BUCKET_NAME,
-            filename,
-            ExtraArgs={'ContentType': 'image/png'},
-        )
-        return f"{settings.AWS_S3_ENDPOINT_URL}/{settings.AWS_STORAGE_BUCKET_NAME}/{filename}"
+        return save_bytes(image_data, subdir='generated/', ext='.png')
 
     def _fetch_image_b64(self, url: str) -> str:
-        """从 URL 获取图片并转为 base64"""
+        """从 URL / 本地媒体路径获取图片并转为 base64"""
         import base64
-        resp = requests.get(url, timeout=30)
-        resp.raise_for_status()
-        return base64.b64encode(resp.content).decode('utf-8')
+        from common.storage import read_file_bytes
+
+        return base64.b64encode(read_file_bytes(url)).decode('utf-8')
+

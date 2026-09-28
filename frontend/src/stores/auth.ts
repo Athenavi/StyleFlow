@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 
 // 内联 API 调用（避免 Turbopack 路径别名解析问题）
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+// 默认同源相对路径 /api/v1，由 Next.js 反向代理到后端（局域网/域名访问友好）
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '');
 
 async function apiRequest(path: string, options: RequestInit = {}): Promise<any> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;

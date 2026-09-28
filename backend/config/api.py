@@ -17,7 +17,8 @@ api = NinjaAPI(
     title='StyleFlow API',
     version='1.0.0',
     description='StyleFlow 服装设计-生产协同平台 API',
-    docs_url='/docs/',
+    # 不带尾斜杠：这样经前端反向代理（Next.js rewrites 会规范化尾斜杠）访问也不会 301
+    docs_url='/docs',
     openapi_url='/openapi.json',
 )
 

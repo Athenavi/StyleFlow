@@ -1,4 +1,6 @@
 -r base.txt
+# 开发环境使用 PostgreSQL（config.settings.dev）
+psycopg2-binary>=2.9
 django-extensions>=4.1
 pytest>=9.0
 pytest-django>=4.12

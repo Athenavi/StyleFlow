@@ -1,2 +1,6 @@
 -r base.txt
+# PostgreSQL 驱动（仅在使用 PostgreSQL 时需要）
+psycopg2-binary>=2.9
 sentry-sdk>=2.63
+# 生产用 WSGI 服务器（Linux/macOS；Windows 请使用 requirements/local.txt 的 waitress）
+gunicorn>=26.0; sys_platform != "win32"

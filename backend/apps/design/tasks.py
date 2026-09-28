@@ -62,9 +62,6 @@ def generate_design_task(self, user_id: int, prompt: str,
 
         logger.info(f"Design #{design.id} generated in {result.latency_ms}ms, seed={result.seed}")
 
-        from .schemas import DesignOut
-        design_out = DesignOut.from_orm(design)
-
         return {
             'design_id': design.id,
             'image_url': result.image_url,
@@ -81,4 +78,5 @@ def generate_design_task(self, user_id: int, prompt: str,
         logger.error(f"Design generation failed: {exc}", exc_info=True)
         if self.request.retries < self.max_retries:
             raise self.retry(exc=exc)
-        return {'error': str(exc), 'status': 'failed'}
+        # 抛出让任务状态标记为 FAILURE，前端可直接展示 error
+        raise

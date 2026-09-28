@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
-  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python">
+  <img src="https://img.shields.io/badge/python-3.12%2B-blue" alt="Python">
   <img src="https://img.shields.io/badge/django-6.0%2B-green" alt="Django">
   <img src="https://img.shields.io/badge/next.js-16-purple" alt="Next.js">
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome">
@@ -14,11 +14,11 @@
 </p>
 
 <p align="center">
-  <a href="#-快速开始">快速开始</a> •
+  <a href="#-快速开始零配置">快速开始</a> •
   <a href="#-功能特性">功能特性</a> •
   <a href="#-技术栈">技术栈</a> •
   <a href="#-项目结构">项目结构</a> •
-  <a href="#-部署">部署</a> •
+  <a href="docs/部署/01-本地一键运行.md">部署文档</a> •
   <a href="README_EN.md">English</a>
 </p>
 
@@ -81,71 +81,104 @@
 
 ---
 
-## 🚀 快速开始
+## 🚀 快速开始（零配置）
 
-### 前置要求
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
+> 不需要安装 PostgreSQL / Redis / MinIO，也不需要自己创建虚拟环境或配密码。
+> 一键脚本会自动准备环境、初始化数据库、构建前端并启动服务。
 
-### 1. 克隆项目
+### 前置要求（只需这两样）
+
+- **Python 3.12+** → <https://www.python.org/downloads/>（Windows 安装时务必勾选 *Add python.exe to PATH*）
+- **Node.js 20+** → <https://nodejs.org/>（Windows 也可执行 `winget install OpenJS.NodeJS.LTS`）
+
+### 启动
+
+Windows：直接双击 **`start.bat`**；或在项目目录执行：
+
 ```bash
-git clone https://github.com/Athenavi/StyleFlow.git
-cd StyleFlow
+python start.py
 ```
 
-### 2. 后端启动
+macOS / Linux：
+
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -r requirements/dev.txt
-
-# 配置环境变量（也可直接修改 .env）
-cp .env.example .env
-# 编辑 .env 填写数据库等配置
-
-# 初始化数据库
-python manage.py makemigrations
-python manage.py migrate
-python manage.py createsuperuser
-
-# 启动开发服务器
-python manage.py runserver
-# API 文档 → http://localhost:8000/api/docs
+bash start.sh        # 或 python3 start.py
 ```
 
-### 3. 前端启动
-```bash
-cd frontend
-npm install
-npm run dev
-# 浏览器打开 → http://localhost:3000
+首次启动会自动完成：安装后端依赖 → 生成 `.env` → 安装前端依赖 → 构建前端（约 3-10 分钟）→ 初始化数据库 → 创建管理员账号 → 启动前后端。之后每次启动只需几秒。
+
+启动完成后终端会打印访问信息：
+
+```
+  ✓ StyleFlow 已启动
+    本机访问      http://127.0.0.1:3000
+    局域网访问    http://192.168.1.23:3000     ← 同一 WiFi 下手机/同事可直接打开
+    接口文档      http://127.0.0.1:3000/api/v1/docs
+    管理后台      http://127.0.0.1:8000/admin/   ← Django 后台（走后端端口）
+    默认账号      admin / <随机密码，同时写入 data/管理员账号.txt>
 ```
 
-### 4. 一键 Docker 部署
-```bash
-docker compose up -d
+按 `Ctrl+C` 停止；也可以另开窗口执行 `python start.py --stop`。
+
+### 常用参数
+
+| 参数 | 说明 |
+|---|---|
+| `--check` | 只做环境自检，不启动服务 |
+| `--port 8080` | 更换前端端口（默认 3000） |
+| `--local` | 仅本机可访问（默认允许局域网访问） |
+| `--dev` | 前端开发模式（不构建，改代码即时生效） |
+| `--rebuild` | 强制重新安装/构建前端 |
+| `--db postgres` | 使用 PostgreSQL（读取 `.env` 中的 `DB_*`） |
+| `--reset-admin` | 重置管理员密码并打印新密码 |
+| `--stop` | 停止已启动的服务 |
+
+### 数据与备份
+
+数据库（SQLite）、上传与 AI 生成的图片、运行日志都集中在 **`data/`** 目录：
+
 ```
+data/
+├── styleflow.sqlite3     # 数据库（SQLite 模式）
+├── media/                # 用户上传 / AI 生成的文件
+├── static/               # 后台静态资源
+└── logs/                 # backend.log / frontend.log
+```
+
+备份或换电脑时，拷走 `data/` 与 `.env` 两个东西即可。
+
+### 三种访问方式
+
+| 场景 | 做法 |
+|---|---|
+| **本机** | 直接启动，打开 http://127.0.0.1:3000 |
+| **局域网** | 其他设备连同一 WiFi，打开终端打印的局域网地址（首次可能需放行防火墙 3000 端口，脚本会给出命令） |
+| **公网 / 域名** | 见 [docs/部署/02-公网访问教程.md](docs/部署/02-公网访问教程.md)（Caddy 自动 HTTPS、Cloudflare Tunnel 等） |
+
+更多说明：
+- [本地一键运行详解](docs/部署/01-本地一键运行.md)
+- [局域网访问配置](docs/部署/01-本地一键运行.md#6-局域网访问)
+- [公网与域名访问](docs/部署/02-公网访问教程.md)
+- [常见问题排查](docs/部署/03-常见问题.md)
 
 ---
 
 ## 🏗️ 技术栈
 
-| 层级 | 技术 | 版本 |
+| 层级 | 技术 | 版本 / 说明 |
 |------|------|------|
 | **后端框架** | Django | 6.0 LTS |
 | **API 框架** | Django Ninja | 1.6 |
-| **异步任务** | Celery | 5.6 |
-| **数据库** | PostgreSQL | 15 |
-| **缓存/队列** | Redis | 7 |
-| **对象存储** | MinIO (S3 兼容) | latest |
+| **异步任务** | 内置线程池 / Celery | 默认线程池（无需 Redis），可切 Celery 5.6 |
+| **数据库** | SQLite / PostgreSQL | 默认 SQLite（零配置），可切 PostgreSQL 15 |
+| **缓存/队列** | Redis | 可选，仅 Celery 模式需要 |
+| **文件存储** | 本地磁盘 / S3 (MinIO) | 默认本地磁盘 `data/media`，可切 S3 兼容对象存储 |
 | **前端框架** | Next.js | 16 |
 | **UI 组件** | Ant Design | 5 |
-| **AI 语言模型** | OpenAI / Claude / 通义千问 | - |
-| **AI 图像模型** | Stable Diffusion / 通义万相 | - |
-| **虚拟试衣** | IDM-VTON (可接入) | - |
+| **AI 语言模型** | OpenAI / Claude / 通义千问 | 可选，自行配置 Key |
+| **AI 图像模型** | Stable Diffusion / 通义万相 | 可选 |
+| **虚拟试衣** | IDM-VTON (可接入) | 可选 |
+| **运行方式** | 一键脚本 `start.py` | 本机 / 局域网 / 域名反向代理 |
 
 ---
 
@@ -153,12 +186,16 @@ docker compose up -d
 
 ```
 StyleFlow/
+├── start.py                    # ⭐ 一键启动器（本地/局域网零配置）
+├── start.bat / start.sh        # Windows 双击 / macOS、Linux 入口
+├── .env.example                # 运行配置示例（start.py 会自动生成 .env）
+├── data/                       # 运行时数据（数据库/图片/日志，可整体备份）
 ├── backend/                    # Django 后端
 │   ├── config/                 # 项目配置
-│   │   ├── settings/           # base/dev/prod 三层配置
+│   │   ├── settings/           # base / local / dev / prod 四层配置
 │   │   ├── api.py              # Ninja API 注册
-│   │   └── celery_app.py       # Celery 配置
-│   ├── apps/                   # 9 个业务模块
+│   │   └── celery_app.py       # Celery 配置（可选）
+│   ├── apps/                   # 10 个业务模块
 │   │   ├── accounts/           # 用户认证 + JWT
 │   │   ├── design/             # AI 设计工坊
 │   │   ├── tryon/              # 虚拟试衣
@@ -170,14 +207,16 @@ StyleFlow/
 │   │   └── media/              # 媒体库
 │   └── common/                 # 公共模块
 │       ├── aiservice/          # AI 服务封装
-│       ├── storage.py          # 文件存储服务
+│       ├── storage.py          # 文件存储服务（local / s3）
+│       ├── taskqueue.py        # 任务执行桥接（线程池 / Celery）
 │       └── crypto.py           # 加密工具
-├── frontend/                   # Next.js 前端
+├── frontend/                   # Next.js 前端（同源反向代理后端）
+│   ├── next.config.ts          # /api /media /admin 代理到 Django
 │   └── src/app/                # 16 个页面路由
-│       ├── (auth)/             # 登录/注册
-│       └── (dashboard)/        # 10+ 业务页面
-├── docs/design/                # 11 份设计文档
-└── docker-compose.yml          # 6 服务编排
+├── docs/
+│   ├── design/                 # 设计文档
+│   └── 部署/                   # 一键运行 / 局域网 / 公网 / 常见问题
+└── data/logs/                  # backend.log、frontend.log
 ```
 
 ---
@@ -199,6 +238,7 @@ StyleFlow/
 | `/wages` | 计件工资 | 报表 |
 | `/media` | 媒体库 | 素材管理 |
 | `/admin/settings` | AI 配置 | 个人模型偏好 |
+| `/admin/`（后端端口） | Django 管理后台 | 用户/数据管理：http://127.0.0.1:8000/admin/ |
 
 ---
 
@@ -214,6 +254,8 @@ StyleFlow/
 - [x] ERP 对接
 - [x] 多 AI 模型支持
 - [x] API Key 加密存储
+- [x] 零配置一键运行（SQLite + 本地文件存储 + 进程内任务队列）
+- [x] 前后端同源部署（局域网 IP / 域名访问无需改配置）
 - [ ] 英文界面 (i18n)
 - [ ] 微信小程序
 - [ ] 单元测试 + E2E

@@ -14,6 +14,10 @@ class ErpStyleOut(Schema):
     status: str
     last_synced_at: str
 
+    @staticmethod
+    def resolve_last_synced_at(obj):
+        return obj.last_synced_at.isoformat() if obj.last_synced_at else ''
+
 
 class ErpProcessOut(Schema):
     process_code: str
@@ -35,7 +39,12 @@ def list_erp_styles(request, category: str = None, search: str = None):
 
 @router.get('/styles/{code}', response=ErpStyleOut)
 def get_erp_style(request, code: str):
-    return ErpStyle.objects.get(style_code=code)
+    from ninja.errors import HttpError
+
+    style = ErpStyle.objects.filter(style_code=code).first()
+    if not style:
+        raise HttpError(404, '款式不存在或尚未同步')
+    return style
 
 
 @router.get('/processes', response=List[ErpProcessOut])
@@ -49,8 +58,17 @@ def list_erp_processes(request, category: str = None):
 @router.post('/sync')
 def trigger_sync(request):
     """触发 ERP 数据同步"""
+    from django.conf import settings as django_settings
+    from ninja.errors import HttpError
+
+    if not django_settings.ERP_CONFIG.get('configured'):
+        raise HttpError(400, '未配置 ERP 数据库，请在 .env 中填写 ERP_DB_* 后重试')
+
     from .sync_engine import ErpDirectSync
-    syncer = ErpDirectSync()
-    syncer.sync_styles()
-    syncer.sync_processes()
+    try:
+        syncer = ErpDirectSync()
+        syncer.sync_styles()
+        syncer.sync_processes()
+    except Exception as exc:
+        raise HttpError(500, f'ERP 同步失败: {exc}')
     return {'success': True, 'message': '同步完成'}

@@ -20,6 +20,10 @@ class WageOut(Schema):
     unit_price: float
     total_amount: float
 
+    @staticmethod
+    def resolve_date(obj):
+        return obj.date.isoformat() if obj.date else ''
+
 
 class WageSummaryOut(Schema):
     total_workers: int

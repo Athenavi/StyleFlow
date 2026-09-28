@@ -1,6 +1,6 @@
 <p align="center">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
-  <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python">
+  <img src="https://img.shields.io/badge/python-3.12%2B-blue" alt="Python">
   <img src="https://img.shields.io/badge/django-6.0%2B-green" alt="Django">
   <img src="https://img.shields.io/badge/next.js-16-purple" alt="Next.js">
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome">
@@ -14,11 +14,11 @@
 </p>
 
 <p align="center">
-  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-quick-start-zero-configuration">Quick Start</a> •
   <a href="#-features">Features</a> •
   <a href="#-tech-stack">Tech Stack</a> •
   <a href="#-project-structure">Structure</a> •
-  <a href="#-deployment">Deployment</a> •
+  <a href="docs/部署/01-本地一键运行.md">Deployment (中文)</a> •
   <a href="README.md">中文</a>
 </p>
 
@@ -81,68 +81,98 @@
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Zero Configuration)
 
-### Prerequisites
-- Python 3.11+
-- Node.js 18+
-- PostgreSQL 15+
-- Redis 7+
+> No PostgreSQL / Redis / MinIO to install, no virtualenv to create, no credentials to fill in.
+> The launcher script prepares everything, initializes the database, builds the frontend and starts both services.
 
-### 1. Clone
+### Prerequisites (only two)
+
+- **Python 3.12+** → <https://www.python.org/downloads/> (on Windows, tick *Add python.exe to PATH*)
+- **Node.js 20+** → <https://nodejs.org/> (or `winget install OpenJS.NodeJS.LTS` on Windows)
+
+### Run it
+
+Windows: double-click **`start.bat`**, or from the project root:
+
 ```bash
-git clone https://github.com/Athenavi/StyleFlow.git
-cd StyleFlow
+python start.py
 ```
 
-### 2. Backend
+macOS / Linux:
+
 ```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements/dev.txt
-
-cp .env.example .env
-# Edit .env with your database config
-
-python manage.py makemigrations
-python manage.py migrate
-python manage.py createsuperuser
-
-python manage.py runserver
-# API docs → http://localhost:8000/api/docs
+bash start.sh        # or python3 start.py
 ```
 
-### 3. Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-# Open → http://localhost:3000
+The first run installs backend dependencies, generates `.env`, installs frontend dependencies, builds the frontend (3-10 minutes), creates the database (SQLite), sets up an admin account and starts both services. Later runs take only a few seconds.
+
+```
+  ✓ StyleFlow is running
+    Local         http://127.0.0.1:3000
+    LAN           http://192.168.1.23:3000     ← open this from any device on the same Wi-Fi
+    API docs      http://127.0.0.1:3000/api/v1/docs
+    Django admin  http://127.0.0.1:8000/admin/   (served on the backend port)
+    Account       admin / <random password, also saved to data/管理员账号.txt>
 ```
 
-### 4. Docker
-```bash
-docker compose up -d
+Press `Ctrl+C` to stop, or run `python start.py --stop` from another terminal.
+
+### Useful flags
+
+| Flag | Description |
+|---|---|
+| `--check` | Environment self-check only, do not start |
+| `--port 8080` | Change the frontend port |
+| `--local` | Bind to 127.0.0.1 only (LAN access is allowed by default) |
+| `--dev` | Frontend dev mode (no build, hot reload) |
+| `--rebuild` | Force reinstall / rebuild the frontend |
+| `--db postgres` | Use PostgreSQL (reads `DB_*` from `.env`) |
+| `--reset-admin` | Reset the admin password and print it |
+| `--stop` | Stop the running instance |
+
+### Data & backup
+
+SQLite database, uploaded/generated images and logs all live in **`data/`**:
+
 ```
+data/
+├── styleflow.sqlite3     # database (SQLite mode)
+├── media/                # uploads and AI output
+├── static/               # admin static assets
+└── logs/                 # backend.log / frontend.log
+```
+
+Copy `data/` and `.env` to move or back up the whole instance.
+
+### Three ways to access
+
+| Scenario | How |
+|---|---|
+| **Local machine** | Start and open http://127.0.0.1:3000 |
+| **LAN** | Connect other devices to the same Wi-Fi and open the printed LAN URL (may require allowing the port through the firewall — the script prints the command) |
+| **Public / domain** | See [docs/部署/02-公网访问教程.md](docs/部署/02-公网访问教程.md) (Caddy auto-HTTPS, Cloudflare Tunnel, …) |
+
+Documentation: [本地一键运行](docs/部署/01-本地一键运行.md) · [公网与域名](docs/部署/02-公网访问教程.md) · [常见问题](docs/部署/03-常见问题.md)
 
 ---
 
 ## 🏗️ Tech Stack
 
-| Layer | Technology | Version |
+| Layer | Technology | Version / Notes |
 |-------|-----------|---------|
 | **Backend** | Django | 6.0 LTS |
 | **API** | Django Ninja | 1.6 |
-| **Async Tasks** | Celery | 5.6 |
-| **Database** | PostgreSQL | 15 |
-| **Cache/Queue** | Redis | 7 |
-| **Storage** | MinIO (S3 compatible) | latest |
+| **Async Tasks** | in-process thread pool / Celery | thread pool by default (no Redis needed) |
+| **Database** | SQLite / PostgreSQL | SQLite by default (zero config) |
+| **Cache/Queue** | Redis | Optional, only for Celery mode |
+| **Storage** | local disk / S3 (MinIO) | local `data/media` by default |
 | **Frontend** | Next.js | 16 |
 | **UI Library** | Ant Design | 5 |
-| **LLM** | OpenAI / Claude / Tongyi Qwen | - |
-| **Image AI** | Stable Diffusion / Tongyi Wanxiang | - |
-| **Virtual Try-On** | IDM-VTON (pluggable) | - |
+| **LLM** | OpenAI / Claude / Tongyi Qwen | optional, bring your own key |
+| **Image AI** | Stable Diffusion / Tongyi Wanxiang | optional |
+| **Virtual Try-On** | IDM-VTON (pluggable) | optional |
+| **Launcher** | `start.py` | local / LAN / reverse-proxied domain |
 
 ---
 
@@ -150,12 +180,16 @@ docker compose up -d
 
 ```
 StyleFlow/
+├── start.py                    # one-click launcher (zero config)
+├── start.bat / start.sh        # Windows / macOS+Linux entry points
+├── .env.example                # runtime config sample (start.py writes .env)
+├── data/                       # runtime data (db / media / logs)
 ├── backend/                    # Django backend
-│   ├── config/                 # Project config
-│   │   ├── settings/           # base/dev/prod
+│   ├── config/                 # project config
+│   │   ├── settings/           # base / local / dev / prod
 │   │   ├── api.py              # Ninja API router
-│   │   └── celery_app.py       # Celery config
-│   ├── apps/                   # 9 business modules
+│   │   └── celery_app.py       # Celery config (optional)
+│   ├── apps/                   # 10 business modules
 │   │   ├── accounts/           # Auth + JWT
 │   │   ├── design/             # AI design studio
 │   │   ├── tryon/              # Virtual try-on
@@ -165,16 +199,15 @@ StyleFlow/
 │   │   ├── wages/              # Piece-rate wages
 │   │   ├── erp/                # ERP integration
 │   │   └── media/              # Media library
-│   └── common/                 # Shared modules
+│   └── common/                 # shared modules
 │       ├── aiservice/          # AI service abstraction
-│       ├── storage.py          # File storage service
-│       └── crypto.py           # Encryption utilities
-├── frontend/                   # Next.js frontend
+│       ├── storage.py          # file storage (local / s3)
+│       ├── taskqueue.py        # task bridge (thread pool / Celery)
+│       └── crypto.py           # encryption utilities
+├── frontend/                   # Next.js frontend (same-origin proxy to Django)
+│   ├── next.config.ts          # proxies /api /media /admin to Django
 │   └── src/app/                # 16 page routes
-│       ├── (auth)/             # Login/Register
-│       └── (dashboard)/        # 10+ business pages
-├── docs/design/                # 11 design documents
-└── docker-compose.yml          # 6-service orchestration
+└── docs/                       # design docs + deployment guides
 ```
 
 ---
@@ -196,6 +229,7 @@ StyleFlow/
 | `/wages` | Wages | Reports |
 | `/media` | Media Library | Asset management |
 | `/admin/settings` | AI Settings | Personal model preferences |
+| `/admin/` (backend port) | Django Admin | Users & data: http://127.0.0.1:8000/admin/ |
 
 ---
 
@@ -211,6 +245,8 @@ StyleFlow/
 - [x] ERP Integration
 - [x] Multi-AI Model Support
 - [x] API Key Encryption
+- [x] Zero-config launcher (SQLite + local storage + in-process tasks)
+- [x] Same-origin deployment (LAN IP / domain work without config changes)
 - [ ] i18n (English UI)
 - [ ] WeChat Mini Program
 - [ ] Unit Tests + E2E
