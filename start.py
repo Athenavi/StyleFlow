@@ -292,13 +292,15 @@ def ensure_node(do_install: bool = True) -> tuple[Path, Path]:
 
 
 def npm_install(npm: Path) -> None:
-    lock = FRONTEND / 'package-lock.json'
-    cmd = [npm, 'ci', '--no-audit', '--no-fund'] if lock.exists() else [npm, 'install', '--no-audit', '--no-fund']
+    """安装前端依赖：优先 `npm ci`（快、可复现），失败时自动回退 `npm install`"""
     info('正在安装前端依赖（首次约 2-5 分钟，请耐心等待）...')
-    try:
-        run(cmd, cwd=FRONTEND)
-    except SystemExit:
-        raise
+    lock = FRONTEND / 'package-lock.json'
+    if lock.exists():
+        code = run([npm, 'ci', '--no-audit', '--no-fund'], cwd=FRONTEND, check=False)
+        if code == 0:
+            return
+        warn('npm ci 失败（通常是 package-lock.json 与 package.json 不同步），改用 npm install 重试 ...')
+    run([npm, 'install', '--no-audit', '--no-fund'], cwd=FRONTEND)
 
 
 def frontend_signature(backend_origin: str, dev: bool) -> dict:

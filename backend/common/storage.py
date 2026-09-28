@@ -13,7 +13,6 @@ URL 约定（重要）：
 - 服务端需要真正抓取文件时（AI 图生图、虚拟试衣），用 to_absolute_url() 还原为可请求地址。
 """
 import io
-import os
 import uuid
 from pathlib import Path
 from urllib.parse import unquote, urlparse
@@ -66,7 +65,7 @@ def to_absolute_url(file_url: str) -> str:
         return url
     base = (getattr(settings, 'BACKEND_BASE_URL', '') or '').rstrip('/')
     if not base:
-        port = os.getenv('BACKEND_PORT', '8000')
+        port = getattr(settings, 'BACKEND_PORT', 8000)
         base = f"http://127.0.0.1:{port}"
     return f"{base}{settings.MEDIA_URL}{_url_to_rel_path(url)}"
 

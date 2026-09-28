@@ -49,6 +49,8 @@ STORAGE_BACKEND = os.getenv('STORAGE_BACKEND', 'local')
 # 后端服务地址（用于生成文件访问 URL）。留空 = 返回同源相对路径 /media/...
 # 前后端同源部署（一键脚本默认）时请留空，局域网/域名访问才能正常显示图片。
 BACKEND_BASE_URL = os.getenv('BACKEND_BASE_URL', '').rstrip('/')
+# 后端监听端口（start.py 写入 .env；服务端需要拼绝对地址时使用）
+BACKEND_PORT = int(os.getenv('BACKEND_PORT', '8000'))
 
 # 任务执行后端: thread（进程内线程池，无需 Redis）| celery（需 Redis）
 TASK_BACKEND = os.getenv('TASK_BACKEND', 'celery').lower()
